@@ -140,6 +140,22 @@ To deploy the application as a service, you can use a process manager like `syst
     sudo systemctl list-units --type=service --state=running
     ```
 
+## Nginx 
+
+Restart nginx after configuration changes:
+
+1. Test the correctness of the config
+
+    ```bash
+    sudo nginx -t
+    ```
+
+2. Restart nginx (ensure the syntax is correct with prior step)
+
+    ```bash
+    sudo systemctl reload nginx
+    ```
+
 ## API Documentation
 
 Once the application is running, you can access:
