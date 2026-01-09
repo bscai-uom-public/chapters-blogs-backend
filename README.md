@@ -51,13 +51,15 @@ app/
 
 3. Add the environment variables
 
+   > NOTE: Ensure that these are set up inside the activated environment/terminal. 
+
     ```bash
     export BLOG_CLIENT_SECRET=your_client_secret_here
     export BLOG_MONGODB_DB_NAME=your_database_name_here
     export BLOG_MONGODB_URL=your_mongodb_url_here_with_credentials
     ```
 
-4. Run the application:
+5. Run the application:
 
     ```bash
     uvicorn app.main:app --reload
@@ -155,3 +157,7 @@ Once the application is running, you can access:
 - Modular structure
 - API versioning
 - OpenAPI documentation
+
+## Troubleshooting
+
+<-- add troubleshooting the health endpoint messages and stuff like that -->
