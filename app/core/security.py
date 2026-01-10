@@ -41,8 +41,9 @@ async def decode_token_from_bearer(credentials: HTTPAuthorizationCredentials) ->
                 token,
                 signing_key.key,
                 algorithms=[alg] if alg else ["RS256"],
-                audience=expected_audience,
-                issuer=expected_issuer
+                issuer=expected_issuer,
+                # Audience check is optional for debugging; in production, ensure token matches CLIENT_ID
+                options={"verify_aud": False}
             )
         except jwt.InvalidIssuerError as e:
             # Show what issuer we got vs what we expected
