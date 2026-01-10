@@ -1,5 +1,7 @@
 from typing import List, Union
 from fastapi import APIRouter, Query, Depends, status, Request, Response
+from pydantic import BaseModel
+import httpx
 from app.schemas.blog import BlogPost, Comment, Reply, AllBlogsBlogPost, BlogPostWithUserData, CommentBase, ReplyBase, UpdateTextRequest, LikeRequest, LikeResponse, LikeStatusResponse, BlogPostCreate, BlogPostUpdate, CommentCreate, ReplyCreate, HealthCheckResponse
 from app.schemas.blog import KeycloakUser
 from app.schemas.responses import (
@@ -13,8 +15,14 @@ from app.services.blog import create_blog, delete_blog_by_id, delete_comment_rep
 from app.services.keycloak import get_all_users, get_all_users_safely, get_user_by_id, get_user_by_id_safely
 from app.services.status import get_comprehensive_health_check, get_request_headers_debug, get_auth_debug_info, get_system_info, is_debug_endpoint_enabled
 from app.core.security import get_current_user_id
+from app.core.config import settings
 
 router = APIRouter()
+
+# Schema for token request
+class TokenRequest(BaseModel):
+    username: str
+    password: str
 
 @router.get("/ping", tags=["Health"], summary="Ping the service to check if it's alive")
 async def ping():
@@ -151,6 +159,72 @@ async def test_auth_with_bearer(current_user_id: str = Depends(get_current_user_
         "user_id": current_user_id,
         "note": "Your Bearer token is valid. You can now use authenticated endpoints."
     }
+
+
+@router.post("/debug/get-bearer-token", tags=["Debug"], summary="Get Bearer token from Keycloak (Debug Only)")
+async def get_bearer_token(token_request: TokenRequest):
+    """
+    Debug endpoint to obtain a Bearer token from Keycloak.
+    
+    WARNING: This endpoint is for development/testing ONLY!
+    It accepts username and password in plain text - DO NOT USE IN PRODUCTION.
+    
+    Usage:
+    1. Click "Try it out"
+    2. Enter your Keycloak username and password
+    3. Click Execute
+    4. Copy the 'access_token' from the response
+    5. Use it in the Authorize button in Swagger UI
+    
+    The token will be valid for the configured token lifetime (usually 15 minutes).
+    
+    NOTE: Remove this endpoint in production for security reasons!
+    """
+    if not is_debug_endpoint_enabled():
+        return {"error": "Debug endpoints are disabled in this environment"}
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{settings.KEYCLOAK_URL}/realms/{settings.REALM}/protocol/openid-connect/token",
+                data={
+                    "grant_type": "password",
+                    "client_id": settings.CLIENT_ID,
+                    "username": token_request.username,
+                    "password": token_request.password,
+                },
+                timeout=10
+            )
+        
+        if response.status_code == 200:
+            token_data = response.json()
+            return {
+                "success": True,
+                "access_token": token_data.get("access_token"),
+                "token_type": "Bearer",
+                "expires_in": token_data.get("expires_in"),
+                "refresh_token": token_data.get("refresh_token"),
+                "instructions": "Copy the 'access_token' value. Click Authorize in Swagger UI and paste it in the Bearer token field."
+            }
+        elif response.status_code == 401:
+            return {
+                "success": False,
+                "error": "Invalid username or password",
+                "status_code": 401
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"Failed to obtain token from Keycloak (Status: {response.status_code})",
+                "details": response.text,
+                "status_code": response.status_code
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error communicating with Keycloak: {str(e)}",
+            "note": f"Ensure Keycloak is accessible at: {settings.KEYCLOAK_URL}"
+        }
 
 # ============================================
 
