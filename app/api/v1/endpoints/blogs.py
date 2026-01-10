@@ -169,6 +169,12 @@ async def get_bearer_token(token_request: TokenRequest):
     WARNING: This endpoint is for development/testing ONLY!
     It accepts username and password in plain text - DO NOT USE IN PRODUCTION.
     
+    Prerequisites in Keycloak:
+    1. The client (CLIENT_ID) must have "Direct Access Grants Enabled" = ON
+    2. The user must have a password set
+    3. The user must be enabled (Enabled toggle = ON)
+    4. The realm must have password grant flow enabled
+    
     Usage:
     1. Click "Try it out"
     2. Enter your Keycloak username and password
@@ -206,24 +212,39 @@ async def get_bearer_token(token_request: TokenRequest):
                 "refresh_token": token_data.get("refresh_token"),
                 "instructions": "Copy the 'access_token' value. Click Authorize in Swagger UI and paste it in the Bearer token field."
             }
-        elif response.status_code == 401:
-            return {
-                "success": False,
-                "error": "Invalid username or password",
-                "status_code": 401
-            }
         else:
+            # Return detailed error info from Keycloak
+            error_data = response.json() if response.headers.get("content-type") == "application/json" else response.text
             return {
                 "success": False,
-                "error": f"Failed to obtain token from Keycloak (Status: {response.status_code})",
-                "details": response.text,
-                "status_code": response.status_code
+                "error": error_data.get("error", "Failed to obtain token") if isinstance(error_data, dict) else error_data,
+                "error_description": error_data.get("error_description", "No details") if isinstance(error_data, dict) else "See error field for details",
+                "status_code": response.status_code,
+                "debug_info": {
+                    "keycloak_url": settings.KEYCLOAK_URL,
+                    "realm": settings.REALM,
+                    "client_id": settings.CLIENT_ID,
+                    "username": token_request.username,
+                    "troubleshooting": [
+                        "1. In Keycloak Admin Console, go to Clients → <CLIENT_ID>",
+                        "2. Check that 'Direct Access Grants Enabled' is ON (Capability config tab)",
+                        "3. Check that the user exists and is ENABLED",
+                        "4. Ensure the password is set correctly for the user",
+                        "5. Try with admin credentials first to verify setup",
+                        "6. Check Keycloak server logs for detailed error messages"
+                    ]
+                }
             }
     except Exception as e:
         return {
             "success": False,
             "error": f"Error communicating with Keycloak: {str(e)}",
-            "note": f"Ensure Keycloak is accessible at: {settings.KEYCLOAK_URL}"
+            "debug_info": {
+                "keycloak_url": settings.KEYCLOAK_URL,
+                "realm": settings.REALM,
+                "client_id": settings.CLIENT_ID,
+                "note": f"Ensure Keycloak is accessible at: {settings.KEYCLOAK_URL}"
+            }
         }
 
 # ============================================
