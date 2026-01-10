@@ -2,7 +2,7 @@ from fastapi import HTTPException, Header, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 import jwt
-import httpx
+from jwt import PyJWKClient
 from app.core.config import settings
 
 security = HTTPBearer(description="Bearer token from Keycloak", auto_error=False)
@@ -10,60 +10,49 @@ security = HTTPBearer(description="Bearer token from Keycloak", auto_error=False
 
 async def decode_token_from_bearer(credentials: HTTPAuthorizationCredentials) -> str:
     """
-    Decode a Bearer token to extract the user_id.
-    For testing/Swagger purposes, this accepts tokens from Keycloak.
-    In production, the nginx gateway handles this.
+    Decode a Bearer token to extract the user_id using Keycloak JWKS via PyJWKClient.
     """
     try:
         token = credentials.credentials
-        
-        # Fetch JWKS from Keycloak to verify the token
-        async with httpx.AsyncClient() as client:
-            jwks_response = await client.get(
-                f"{settings.KEYCLOAK_URL}/realms/{settings.REALM}/protocol/openid-connect/certs",
-                timeout=10
+
+        # Inspect token header to determine algorithm
+        try:
+            unverified_header = jwt.get_unverified_header(token)
+            alg = unverified_header.get("alg")
+        except Exception as e:
+            raise HTTPException(status_code=401, detail=f"Invalid token format: {str(e)}")
+
+        # Resolve signing key from JWKS
+        jwks_url = f"{settings.KEYCLOAK_URL}/realms/{settings.REALM}/protocol/openid-connect/certs"
+        jwks_client = PyJWKClient(jwks_url)
+        try:
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
+        except Exception as e:
+            raise HTTPException(status_code=401, detail=f"Unable to resolve signing key: {str(e)}")
+
+        # Verify and decode the token using the resolved key and the actual algorithm
+        try:
+            decoded = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=[alg] if alg else ["RS256"],
+                audience=settings.CLIENT_ID,
+                issuer=f"{settings.KEYCLOAK_URL}/realms/{settings.REALM}"
             )
-            if jwks_response.status_code != 200:
-                raise HTTPException(status_code=401, detail="Failed to fetch Keycloak JWKS")
-            
-            jwks = jwks_response.json()
-        
-        # Decode without verification first to get the header
-        unverified_header = jwt.get_unverified_header(token)
-        
-        # Find the key matching the kid in the token header
-        matching_key = None
-        for key in jwks.get("keys", []):
-            if key.get("kid") == unverified_header.get("kid"):
-                matching_key = key
-                break
-        
-        if not matching_key:
-            raise HTTPException(status_code=401, detail="Token key not found")
-        
-        # Construct the public key from the certificate
-        public_key = f"-----BEGIN CERTIFICATE-----\n{matching_key['x5c'][0]}\n-----END CERTIFICATE-----"
-        
-        # Verify and decode the token
-        decoded = jwt.decode(
-            token,
-            public_key,
-            algorithms=["RS256"],
-            audience=settings.CLIENT_ID,
-            issuer=f"{settings.KEYCLOAK_URL}/realms/{settings.REALM}"
-        )
-        
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token expired")
+        except jwt.InvalidTokenError as e:
+            raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+
         # Extract user_id from token (prefer 'sub' which is the user ID in Keycloak)
         user_id = decoded.get("sub") or decoded.get("preferred_username")
         if not user_id:
             raise HTTPException(status_code=401, detail="User ID not found in token")
-        
+
         return user_id
-        
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Token validation failed: {str(e)}")
 
