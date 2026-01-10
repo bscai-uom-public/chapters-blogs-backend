@@ -193,12 +193,18 @@ async def get_bearer_token(token_request: TokenRequest):
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{settings.KEYCLOAK_URL}/realms/{settings.REALM}/protocol/openid-connect/token",
-                data={
-                    "grant_type": "password",
-                    "client_id": settings.CLIENT_ID,
-                    "username": token_request.username,
-                    "password": token_request.password,
-                },
+                data=(
+                    (lambda: (
+                        (lambda d: (d.update({"client_secret": settings.CLIENT_SECRET}) or d) if settings.CLIENT_SECRET else d)(
+                            {
+                                "grant_type": "password",
+                                "client_id": settings.CLIENT_ID,
+                                "username": token_request.username,
+                                "password": token_request.password,
+                            }
+                        )
+                    ))()
+                ),
                 timeout=10
             )
         
