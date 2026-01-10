@@ -15,8 +15,9 @@ async def decode_token_from_bearer(credentials: HTTPAuthorizationCredentials) ->
     try:
         token = credentials.credentials
 
-        # Inspect token header to determine algorithm
+        # Decode without verification first to inspect claims
         try:
+            unverified = jwt.decode(token, options={"verify_signature": False})
             unverified_header = jwt.get_unverified_header(token)
             alg = unverified_header.get("alg")
         except Exception as e:
@@ -30,14 +31,31 @@ async def decode_token_from_bearer(credentials: HTTPAuthorizationCredentials) ->
         except Exception as e:
             raise HTTPException(status_code=401, detail=f"Unable to resolve signing key: {str(e)}")
 
+        # Expected values
+        expected_issuer = f"{settings.KEYCLOAK_URL}/realms/{settings.REALM}"
+        expected_audience = settings.CLIENT_ID
+
         # Verify and decode the token using the resolved key and the actual algorithm
         try:
             decoded = jwt.decode(
                 token,
                 signing_key.key,
                 algorithms=[alg] if alg else ["RS256"],
-                audience=settings.CLIENT_ID,
-                issuer=f"{settings.KEYCLOAK_URL}/realms/{settings.REALM}"
+                audience=expected_audience,
+                issuer=expected_issuer
+            )
+        except jwt.InvalidIssuerError as e:
+            # Show what issuer we got vs what we expected
+            actual_issuer = unverified.get("iss")
+            raise HTTPException(
+                status_code=401,
+                detail=f"Invalid issuer. Expected: {expected_issuer}, Got: {actual_issuer}"
+            )
+        except jwt.InvalidAudienceError as e:
+            actual_audience = unverified.get("aud")
+            raise HTTPException(
+                status_code=401,
+                detail=f"Invalid audience. Expected: {expected_audience}, Got: {actual_audience}"
             )
         except jwt.ExpiredSignatureError:
             raise HTTPException(status_code=401, detail="Token expired")
