@@ -10,6 +10,9 @@ class Settings(BaseSettings):
         "*",
         "http://localhost:3000",
         "https://localhost:3000",
+        "https://aistudentchapter.lk",
+        "https://www.aistudentchapter.lk",
+        "http://localhost",
     ]
     
     # Database settings
@@ -20,8 +23,8 @@ class Settings(BaseSettings):
     MONGODB_DB_NAME: str = os.getenv("BLOG_MONGODB_DB_NAME", "")
 
     # Keycloak settings
-    KEYCLOAK_URL: str = "http://localhost:8080"
-    REALM: str = "master"
+    KEYCLOAK_URL: str = os.getenv("KEYCLOAK_URL", "https://aistudentchapter.lk/keycloak")
+    REALM: str = os.getenv("KEYCLOAK_REALM", "master")
     CLIENT_ID: str = "blogs-service"  # Custom client used for blog service (separation of concerns)
     CLIENT_SECRET: str = os.getenv("BLOG_CLIENT_SECRET", "")
 

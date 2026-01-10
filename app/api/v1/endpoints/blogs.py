@@ -1,5 +1,7 @@
 from typing import List, Union
 from fastapi import APIRouter, Query, Depends, status, Request, Response
+from pydantic import BaseModel
+import httpx
 from app.schemas.blog import BlogPost, Comment, Reply, AllBlogsBlogPost, BlogPostWithUserData, CommentBase, ReplyBase, UpdateTextRequest, LikeRequest, LikeResponse, LikeStatusResponse, BlogPostCreate, BlogPostUpdate, CommentCreate, ReplyCreate, HealthCheckResponse
 from app.schemas.blog import KeycloakUser
 from app.schemas.responses import (
@@ -13,8 +15,14 @@ from app.services.blog import create_blog, delete_blog_by_id, delete_comment_rep
 from app.services.keycloak import get_all_users, get_all_users_safely, get_user_by_id, get_user_by_id_safely
 from app.services.status import get_comprehensive_health_check, get_request_headers_debug, get_auth_debug_info, get_system_info, is_debug_endpoint_enabled
 from app.core.security import get_current_user_id
+from app.core.config import settings
 
 router = APIRouter()
+
+# Schema for token request
+class TokenRequest(BaseModel):
+    username: str
+    password: str
 
 @router.get("/ping", tags=["Health"], summary="Ping the service to check if it's alive")
 async def ping():
@@ -119,6 +127,131 @@ async def get_system_information():
         return {"error": "Debug endpoints are disabled in this environment"}
     
     return await get_system_info()
+
+
+@router.get("/debug/test-auth-with-bearer", tags=["Debug"], summary="Test authentication with Bearer token")
+async def test_auth_with_bearer(current_user_id: str = Depends(get_current_user_id)):
+    """
+    Debug endpoint to test Bearer token authentication for Swagger UI testing.
+    
+    Instructions for Swagger testing:
+    1. Get a valid Bearer token from Keycloak:
+       - POST to: {KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/token
+       - With body: grant_type=password&client_id=blogs-service&username=<user>&password=<pass>
+       - Copy the 'access_token' value from the response
+    
+    2. Click the 'Authorize' button in Swagger UI (lock icon in top right)
+    
+    3. Paste the token in the Bearer token field as: <token_value>
+    
+    4. Try this endpoint first to verify the token works
+    
+    5. Then try authenticated endpoints like POST /createblog
+    
+    NOTE: This endpoint is for development/testing only. Remove in production.
+    """
+    if not is_debug_endpoint_enabled():
+        return {"error": "Debug endpoints are disabled in this environment"}
+    
+    return {
+        "success": True,
+        "message": "Bearer token authentication successful",
+        "user_id": current_user_id,
+        "note": "Your Bearer token is valid. You can now use authenticated endpoints."
+    }
+
+
+@router.post("/debug/get-bearer-token", tags=["Debug"], summary="Get Bearer token from Keycloak (Debug Only)")
+async def get_bearer_token(token_request: TokenRequest):
+    """
+    Debug endpoint to obtain a Bearer token from Keycloak.
+    
+    WARNING: This endpoint is for development/testing ONLY!
+    It accepts username and password in plain text - DO NOT USE IN PRODUCTION.
+    
+    Prerequisites in Keycloak:
+    1. The client (CLIENT_ID) must have "Direct Access Grants Enabled" = ON
+    2. The user must have a password set
+    3. The user must be enabled (Enabled toggle = ON)
+    4. The realm must have password grant flow enabled
+    
+    Usage:
+    1. Click "Try it out"
+    2. Enter your Keycloak username and password
+    3. Click Execute
+    4. Copy the 'access_token' from the response
+    5. Use it in the Authorize button in Swagger UI
+    
+    The token will be valid for the configured token lifetime (usually 15 minutes).
+    
+    NOTE: Remove this endpoint in production for security reasons!
+    """
+    if not is_debug_endpoint_enabled():
+        return {"error": "Debug endpoints are disabled in this environment"}
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{settings.KEYCLOAK_URL}/realms/{settings.REALM}/protocol/openid-connect/token",
+                data=(
+                    (lambda: (
+                        (lambda d: (d.update({"client_secret": settings.CLIENT_SECRET}) or d) if settings.CLIENT_SECRET else d)(
+                            {
+                                "grant_type": "password",
+                                "client_id": settings.CLIENT_ID,
+                                "username": token_request.username,
+                                "password": token_request.password,
+                            }
+                        )
+                    ))()
+                ),
+                timeout=10
+            )
+        
+        if response.status_code == 200:
+            token_data = response.json()
+            return {
+                "success": True,
+                "access_token": token_data.get("access_token"),
+                "token_type": "Bearer",
+                "expires_in": token_data.get("expires_in"),
+                "refresh_token": token_data.get("refresh_token"),
+                "instructions": "Copy the 'access_token' value. Click Authorize in Swagger UI and paste it in the Bearer token field."
+            }
+        else:
+            # Return detailed error info from Keycloak
+            error_data = response.json() if response.headers.get("content-type") == "application/json" else response.text
+            return {
+                "success": False,
+                "error": error_data.get("error", "Failed to obtain token") if isinstance(error_data, dict) else error_data,
+                "error_description": error_data.get("error_description", "No details") if isinstance(error_data, dict) else "See error field for details",
+                "status_code": response.status_code,
+                "debug_info": {
+                    "keycloak_url": settings.KEYCLOAK_URL,
+                    "realm": settings.REALM,
+                    "client_id": settings.CLIENT_ID,
+                    "username": token_request.username,
+                    "troubleshooting": [
+                        "1. In Keycloak Admin Console, go to Clients → <CLIENT_ID>",
+                        "2. Check that 'Direct Access Grants Enabled' is ON (Capability config tab)",
+                        "3. Check that the user exists and is ENABLED",
+                        "4. Ensure the password is set correctly for the user",
+                        "5. Try with admin credentials first to verify setup",
+                        "6. Check Keycloak server logs for detailed error messages"
+                    ]
+                }
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error communicating with Keycloak: {str(e)}",
+            "debug_info": {
+                "keycloak_url": settings.KEYCLOAK_URL,
+                "realm": settings.REALM,
+                "client_id": settings.CLIENT_ID,
+                "note": f"Ensure Keycloak is accessible at: {settings.KEYCLOAK_URL}"
+            }
+        }
 
 # ============================================
 
