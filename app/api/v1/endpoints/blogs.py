@@ -120,6 +120,38 @@ async def get_system_information():
     
     return await get_system_info()
 
+
+@router.get("/debug/test-auth-with-bearer", tags=["Debug"], summary="Test authentication with Bearer token")
+async def test_auth_with_bearer(current_user_id: str = Depends(get_current_user_id)):
+    """
+    Debug endpoint to test Bearer token authentication for Swagger UI testing.
+    
+    Instructions for Swagger testing:
+    1. Get a valid Bearer token from Keycloak:
+       - POST to: {KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/token
+       - With body: grant_type=password&client_id=blogs-service&username=<user>&password=<pass>
+       - Copy the 'access_token' value from the response
+    
+    2. Click the 'Authorize' button in Swagger UI (lock icon in top right)
+    
+    3. Paste the token in the Bearer token field as: <token_value>
+    
+    4. Try this endpoint first to verify the token works
+    
+    5. Then try authenticated endpoints like POST /createblog
+    
+    NOTE: This endpoint is for development/testing only. Remove in production.
+    """
+    if not is_debug_endpoint_enabled():
+        return {"error": "Debug endpoints are disabled in this environment"}
+    
+    return {
+        "success": True,
+        "message": "Bearer token authentication successful",
+        "user_id": current_user_id,
+        "note": "Your Bearer token is valid. You can now use authenticated endpoints."
+    }
+
 # ============================================
 
 # NOTE: All endpoints with `Authenticated` tag require `X-User-ID` header to be set with the user's ID.
