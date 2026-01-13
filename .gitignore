@@ -27,4 +27,7 @@ env.*
 *.log
 .DS_Store
 
-
+# Frontend and gateway exclusions
+frontend/
+auth-server/
+nginx/
