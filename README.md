@@ -628,3 +628,13 @@ sudo tail -f /var/log/nginx/access.log
 ```bash
 sudo tail -f /var/log/nginx/error.log
 ```
+
+
+## Troubleshoot
+
+**502 error - bad gateway**
+Most probably `nginx` is fine but the BE might not been started or enabled (verify with `systemctl status ai-blogs-be`. Enable the service and start it.
+```bash
+systemctl enable ai-blogs-be
+systemctl start ai-blogs-be
+```
