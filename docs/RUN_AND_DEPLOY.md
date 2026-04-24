@@ -18,7 +18,7 @@
 
 - Python runtime available
 - MongoDB available and reachable
-- Keycloak available and reachable
+- Supabase auth endpoint reachable
 - Environment variables configured
 
 ## Local boot sequence
@@ -34,9 +34,9 @@ source .venv/bin/activate
 pip install -r requirements.txt
 export BLOG_MONGODB_URL="mongodb://localhost:27017"
 export BLOG_MONGODB_DB_NAME="blog_db"
-export KEYCLOAK_URL="http://localhost:8080"
-export KEYCLOAK_REALM="master"
-export BLOG_CLIENT_SECRET="..."
+export SUPABASE_URL="https://<your-project-ref>.supabase.co"
+export SUPABASE_JWT_AUDIENCE="authenticated"
+export ALLOW_TRUSTED_X_USER_ID="false"
 uvicorn app.main:app --reload --port 3003
 ```
 
@@ -59,9 +59,9 @@ docker build -t chapters-blogs-backend .
 docker run --rm -p 3003:3003 \
   -e BLOG_MONGODB_URL="mongodb://host.docker.internal:27017" \
   -e BLOG_MONGODB_DB_NAME="blog_db" \
-  -e KEYCLOAK_URL="http://host.docker.internal:8080" \
-  -e KEYCLOAK_REALM="master" \
-  -e BLOG_CLIENT_SECRET="..." \
+  -e SUPABASE_URL="https://<your-project-ref>.supabase.co" \
+  -e SUPABASE_JWT_AUDIENCE="authenticated" \
+  -e ALLOW_TRUSTED_X_USER_ID="false" \
   chapters-blogs-backend
 ```
 
@@ -101,7 +101,7 @@ Rollback steps:
 - Restrict CORS to trusted frontend origins only.
 - Enforce gateway boundary if relying on `X-User-ID`.
 - Enable stricter JWT checks (including audience).
-- Ensure DB and Keycloak credentials come from secret store.
+- Ensure DB and Supabase auth settings come from secret/config store.
 
 ## Operational endpoints
 

@@ -149,13 +149,13 @@ class LikeStatusResponse(BaseModel):
 
 # NOTE: alias is input for serialization, serialization_alias is output for serialization.
 
-class KeycloakUser(BaseModel):
+class AuthUserProfile(BaseModel):
     username: str
     profilePicUrl: str = ""
     firstName: str
     lastName: str
 
-    # profilePicUrl is a nested field in Keycloak response. This function extracts it and puts it in the root, before pydantic parses the values.
+    # profilePicUrl fallback normalization for provider metadata.
     @model_validator(mode="before")
     def check_profile_pic_url(cls, values):
         # Only extract from attributes if profilePicUrl is not already set
@@ -188,7 +188,7 @@ class DatabaseMetrics(BaseModel):
 class DatabaseHealth(ServiceHealth):
     metrics: Optional[DatabaseMetrics] = None
 
-class KeycloakHealth(ServiceHealth):
+class AuthProviderHealth(ServiceHealth):
     authenticated: bool
 
 class HealthCheckResponse(BaseModel):
@@ -199,6 +199,6 @@ class HealthCheckResponse(BaseModel):
     uptime_seconds: Optional[float] = None
     uptime_formatted: Optional[str] = None
     timezone: str = "GMT+5:30 (IST)"
-    keycloak: KeycloakHealth
+    auth_provider: AuthProviderHealth
     database: DatabaseHealth
     overall_response_time_ms: float

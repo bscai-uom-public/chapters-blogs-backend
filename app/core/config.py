@@ -21,11 +21,10 @@ class Settings(BaseSettings):
     MONGODB_URL: str = os.getenv("BLOG_MONGODB_URL", "mongodb://localhost:27017")
     MONGODB_DB_NAME: str = os.getenv("BLOG_MONGODB_DB_NAME", "")
 
-    # Keycloak settings
-    KEYCLOAK_URL: str = os.getenv("KEYCLOAK_URL", "https://aistudentchapter.lk/keycloak")
-    REALM: str = os.getenv("KEYCLOAK_REALM", "master")
-    CLIENT_ID: str = "blogs-service"  # Custom client used for blog service (separation of concerns)
-    CLIENT_SECRET: str = os.getenv("BLOG_CLIENT_SECRET", "")
+    # Supabase auth settings
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_JWT_AUDIENCE: str = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated")
+    ALLOW_TRUSTED_X_USER_ID: bool = os.getenv("ALLOW_TRUSTED_X_USER_ID", "false").lower() == "true"
 
     class Config:
         case_sensitive = True

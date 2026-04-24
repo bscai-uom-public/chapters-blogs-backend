@@ -1,21 +1,19 @@
 from typing import List, Union
 from fastapi import APIRouter, Query, Depends, status, Request, Response
 from pydantic import BaseModel
-import httpx
 from app.schemas.blog import BlogPost, Comment, Reply, AllBlogsBlogPost, BlogPostWithUserData, CommentBase, ReplyBase, UpdateTextRequest, LikeRequest, LikeResponse, LikeStatusResponse, BlogPostCreate, BlogPostUpdate, CommentCreate, ReplyCreate, HealthCheckResponse
-from app.schemas.blog import KeycloakUser
+from app.schemas.blog import AuthUserProfile
 from app.schemas.responses import (
-    HEALTH_CHECK_RESPONSES, KEYCLOAK_USERS_LIST_RESPONSES, KEYCLOAK_USER_RESPONSES,
+    HEALTH_CHECK_RESPONSES, AUTH_PROVIDER_USERS_LIST_RESPONSES, AUTH_PROVIDER_USER_RESPONSES,
     BLOGS_LIST_RESPONSES, BLOGS_BY_TAGS_RESPONSES, BLOG_GET_RESPONSES, 
     BLOG_CREATE_RESPONSES, BLOG_UPDATE_RESPONSES, BLOG_DELETE_RESPONSES,
     COMMENTS_LIST_RESPONSES, COMMENT_CREATE_RESPONSES, REPLY_CREATE_RESPONSES,
     COMMENT_UPDATE_RESPONSES, COMMENT_DELETE_RESPONSES, LIKE_RESPONSES, LIKE_STATUS_RESPONSES
 )
 from app.services.blog import create_blog, delete_blog_by_id, delete_comment_reply, fetch_comments_and_replies, get_all_blogs, get_blog_by_id, get_blogs_byTags, reply_comment, update_Comment_Reply, update_blog, write_comment, like_or_unlike, check_user_like_status
-from app.services.keycloak import get_all_users, get_all_users_safely, get_user_by_id, get_user_by_id_safely
+from app.services.auth_provider import get_all_users, get_all_users_safely, get_user_by_id, get_user_by_id_safely
 from app.services.status import get_comprehensive_health_check, get_request_headers_debug, get_auth_debug_info, get_system_info, is_debug_endpoint_enabled
 from app.core.security import get_current_user_id
-from app.core.config import settings
 
 router = APIRouter()
 
@@ -35,7 +33,7 @@ async def blog_service_health():
     Comprehensive health check for the blog service.
     
     Checks:
-    - Keycloak authentication service connectivity and authentication capability
+    - auth provider service connectivity and authentication capability
     - MongoDB database connectivity and performance metrics
     - Overall service response time and status
     
@@ -57,15 +55,15 @@ async def blog_service_health():
     
     return health_response
 
-# NOTE: DO NOT turn these `keycloak` endpoints on in production. These can leak user information !!
+# NOTE: DO NOT turn these auth provider debug endpoints on in production. These can leak user information !!
 # ============================================
-@router.get("/debug/keycloak-users", response_model=List[KeycloakUser], tags=["Debug"], summary="Get all Keycloak users", responses=KEYCLOAK_USERS_LIST_RESPONSES)
+@router.get("/debug/auth-users", response_model=List[AuthUserProfile], tags=["Debug"], summary="Get all auth users", responses=AUTH_PROVIDER_USERS_LIST_RESPONSES)
 async def getAllUsers():
     # Do not use the safe functions here. We want to check for errors when debugging. 
     return await get_all_users()
 
 
-@router.get("/debug/keycloak-users/{user_id}", response_model=KeycloakUser, tags=["Debug"], summary="Get Keycloak user by ID", responses=KEYCLOAK_USER_RESPONSES)
+@router.get("/debug/auth-users/{user_id}", response_model=AuthUserProfile, tags=["Debug"], summary="Get auth user by ID", responses=AUTH_PROVIDER_USER_RESPONSES)
 async def getUserByID(user_id: str):
     # Do not use the safe functions here. We want to check for errors when debugging.
     return await get_user_by_id(user_id)
@@ -135,10 +133,7 @@ async def test_auth_with_bearer(current_user_id: str = Depends(get_current_user_
     Debug endpoint to test Bearer token authentication for Swagger UI testing.
     
     Instructions for Swagger testing:
-    1. Get a valid Bearer token from Keycloak:
-       - POST to: {KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/token
-       - With body: grant_type=password&client_id=blogs-service&username=<user>&password=<pass>
-       - Copy the 'access_token' value from the response
+    1. Get a valid Bearer token from Supabase Auth sign-in flow.
     
     2. Click the 'Authorize' button in Swagger UI (lock icon in top right)
     
@@ -161,101 +156,31 @@ async def test_auth_with_bearer(current_user_id: str = Depends(get_current_user_
     }
 
 
-@router.post("/debug/get-bearer-token", tags=["Debug"], summary="Get Bearer token from Keycloak (Debug Only)")
+@router.post("/debug/get-bearer-token", tags=["Debug"], summary="Get Bearer token (Deprecated for Supabase)")
 async def get_bearer_token(token_request: TokenRequest):
     """
-    Debug endpoint to obtain a Bearer token from Keycloak.
+    Deprecated debug endpoint kept for compatibility during auth migration.
     
     WARNING: This endpoint is for development/testing ONLY!
     It accepts username and password in plain text - DO NOT USE IN PRODUCTION.
     
-    Prerequisites in Keycloak:
-    1. The client (CLIENT_ID) must have "Direct Access Grants Enabled" = ON
-    2. The user must have a password set
-    3. The user must be enabled (Enabled toggle = ON)
-    4. The realm must have password grant flow enabled
-    
-    Usage:
-    1. Click "Try it out"
-    2. Enter your Keycloak username and password
-    3. Click Execute
-    4. Copy the 'access_token' from the response
-    5. Use it in the Authorize button in Swagger UI
-    
-    The token will be valid for the configured token lifetime (usually 15 minutes).
-    
-    NOTE: Remove this endpoint in production for security reasons!
+    NOTE: Remove this endpoint in production for security reasons.
     """
     if not is_debug_endpoint_enabled():
         return {"error": "Debug endpoints are disabled in this environment"}
     
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{settings.KEYCLOAK_URL}/realms/{settings.REALM}/protocol/openid-connect/token",
-                data=(
-                    (lambda: (
-                        (lambda d: (d.update({"client_secret": settings.CLIENT_SECRET}) or d) if settings.CLIENT_SECRET else d)(
-                            {
-                                "grant_type": "password",
-                                "client_id": settings.CLIENT_ID,
-                                "username": token_request.username,
-                                "password": token_request.password,
-                            }
-                        )
-                    ))()
-                ),
-                timeout=10
-            )
-        
-        if response.status_code == 200:
-            token_data = response.json()
-            return {
-                "success": True,
-                "access_token": token_data.get("access_token"),
-                "token_type": "Bearer",
-                "expires_in": token_data.get("expires_in"),
-                "refresh_token": token_data.get("refresh_token"),
-                "instructions": "Copy the 'access_token' value. Click Authorize in Swagger UI and paste it in the Bearer token field."
-            }
-        else:
-            # Return detailed error info from Keycloak
-            error_data = response.json() if response.headers.get("content-type") == "application/json" else response.text
-            return {
-                "success": False,
-                "error": error_data.get("error", "Failed to obtain token") if isinstance(error_data, dict) else error_data,
-                "error_description": error_data.get("error_description", "No details") if isinstance(error_data, dict) else "See error field for details",
-                "status_code": response.status_code,
-                "debug_info": {
-                    "keycloak_url": settings.KEYCLOAK_URL,
-                    "realm": settings.REALM,
-                    "client_id": settings.CLIENT_ID,
-                    "username": token_request.username,
-                    "troubleshooting": [
-                        "1. In Keycloak Admin Console, go to Clients → <CLIENT_ID>",
-                        "2. Check that 'Direct Access Grants Enabled' is ON (Capability config tab)",
-                        "3. Check that the user exists and is ENABLED",
-                        "4. Ensure the password is set correctly for the user",
-                        "5. Try with admin credentials first to verify setup",
-                        "6. Check Keycloak server logs for detailed error messages"
-                    ]
-                }
-            }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Error communicating with Keycloak: {str(e)}",
-            "debug_info": {
-                "keycloak_url": settings.KEYCLOAK_URL,
-                "realm": settings.REALM,
-                "client_id": settings.CLIENT_ID,
-                "note": f"Ensure Keycloak is accessible at: {settings.KEYCLOAK_URL}"
-            }
+    return {
+        "success": False,
+        "error": "Direct token minting from this backend is disabled after Supabase migration.",
+        "status_code": 410,
+        "debug_info": {
+            "note": "Use Supabase Auth sign-in on the frontend to obtain access tokens."
         }
+    }
 
 # ============================================
 
-# NOTE: All endpoints with `Authenticated` tag require `X-User-ID` header to be set with the user's ID.
+# NOTE: All endpoints with `Authenticated` tag require valid bearer auth.
 
 @router.get('/public/blogs', response_model=List[AllBlogsBlogPost], tags=["Blog", "Unauthenticated"], summary="Get all blogs", responses=BLOGS_LIST_RESPONSES)
 async def getAllBlogs():

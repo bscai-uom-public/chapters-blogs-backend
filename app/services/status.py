@@ -13,8 +13,8 @@ import sys
 from datetime import datetime
 from typing import Dict, Any
 from fastapi import Request
-from app.schemas.blog import HealthCheckResponse, KeycloakHealth, DatabaseHealth
-from app.services.keycloak import check_keycloak_health
+from app.schemas.blog import HealthCheckResponse, AuthProviderHealth, DatabaseHealth
+from app.services.auth_provider import check_auth_provider_health
 from app.services.blog import check_database_health
 
 
@@ -23,7 +23,7 @@ async def get_comprehensive_health_check() -> Dict[str, Any]:
     Perform comprehensive health check for the blog service.
     
     Checks:
-    - Keycloak authentication service connectivity and authentication capability
+    - auth provider connectivity and authentication capability
     - MongoDB database connectivity and performance metrics
     - Overall service response time and status
     
@@ -36,13 +36,13 @@ async def get_comprehensive_health_check() -> Dict[str, Any]:
     start_time = time.time()
     
     try:
-        keycloak_health_raw = await check_keycloak_health()
-        keycloak_health = KeycloakHealth(**keycloak_health_raw)
+        auth_provider_health_raw = await check_auth_provider_health()
+        auth_provider_health = AuthProviderHealth(**auth_provider_health_raw)
     except Exception as e:
-        keycloak_health = KeycloakHealth(
+        auth_provider_health = AuthProviderHealth(
             status="unhealthy",
             response_time_ms=None,
-            service="keycloak", 
+            service="supabase-auth", 
             authenticated=False,
             error=str(e)
         )
@@ -63,13 +63,13 @@ async def get_comprehensive_health_check() -> Dict[str, Any]:
     overall_response_time = round((time.time() - start_time) * 1000, 2)
     
     # Determine overall health status
-    keycloak_healthy = keycloak_health.status == "healthy"
+    auth_provider_healthy = auth_provider_health.status == "healthy"
     database_healthy = database_health.status == "healthy"
     
-    if keycloak_healthy and database_healthy:
+    if auth_provider_healthy and database_healthy:
         overall_status = "healthy"
         status_code = 200
-    elif database_healthy:  # Database is critical, if it's healthy but Keycloak isn't, we're degraded
+    elif database_healthy:  # Database is critical, if it's healthy but auth provider isn't, we're degraded
         overall_status = "degraded"
         status_code = 503
     else:  # Database is unhealthy, service is unhealthy
@@ -88,7 +88,7 @@ async def get_comprehensive_health_check() -> Dict[str, Any]:
         uptime_seconds=uptime_info.get("uptime_seconds"),
         uptime_formatted=uptime_info.get("uptime_formatted"),
         timezone=uptime_info.get("timezone", "GMT+5:30 (IST)"),
-        keycloak=keycloak_health,
+        auth_provider=auth_provider_health,
         database=database_health,
         overall_response_time_ms=overall_response_time
     )

@@ -26,10 +26,10 @@ HEALTH_CHECK_RESPONSES: Dict[int | str, Dict[str, Any]] = {
                             "uptime_seconds": 21600.5,
                             "uptime_formatted": "6h 0m 0s",
                             "timezone": "GMT+5:30 (IST)",
-                            "keycloak": {
+                            "auth_provider": {
                                 "status": "healthy",
                                 "response_time_ms": 150.25,
-                                "service": "keycloak",
+                                "service": "supabase-auth",
                                 "authenticated": True
                             },
                             "database": {
@@ -66,10 +66,10 @@ HEALTH_CHECK_RESPONSES: Dict[int | str, Dict[str, Any]] = {
                             "uptime_seconds": 21600.5,
                             "uptime_formatted": "6h 0m 0s",
                             "timezone": "GMT+5:30 (IST)",
-                            "keycloak": {
+                            "auth_provider": {
                                 "status": "unhealthy",
                                 "response_time_ms": None,
-                                "service": "keycloak",
+                                "service": "supabase-auth",
                                 "authenticated": False,
                                 "error": "Connection timeout"
                             },
@@ -98,10 +98,10 @@ HEALTH_CHECK_RESPONSES: Dict[int | str, Dict[str, Any]] = {
                             "uptime_seconds": 21600.5,
                             "uptime_formatted": "6h 0m 0s",
                             "timezone": "GMT+5:30 (IST)",
-                            "keycloak": {
+                            "auth_provider": {
                                 "status": "unhealthy",
                                 "response_time_ms": None,
-                                "service": "keycloak",
+                                "service": "supabase-auth",
                                 "authenticated": False,
                                 "error": "Service unavailable"
                             },
@@ -121,16 +121,16 @@ HEALTH_CHECK_RESPONSES: Dict[int | str, Dict[str, Any]] = {
     }
 }
 
-# Keycloak Responses
-KEYCLOAK_USERS_LIST_RESPONSES: Dict[int | str, Dict[str, Any]] = {
-    200: {"description": "Successfully retrieved list of Keycloak users"},
+# Auth Provider Responses
+AUTH_PROVIDER_USERS_LIST_RESPONSES: Dict[int | str, Dict[str, Any]] = {
+    200: {"description": "Successfully retrieved list of auth provider users"},
     401: {"description": "Unauthorized"},
     500: {"description": "Internal server error"}
 }
 
-KEYCLOAK_USER_RESPONSES: Dict[int | str, Dict[str, Any]] = {
-    200: {"description": "Successfully retrieved Keycloak user"},
-    404: {"description": "Keycloak user not found"},
+AUTH_PROVIDER_USER_RESPONSES: Dict[int | str, Dict[str, Any]] = {
+    200: {"description": "Successfully retrieved auth provider user"},
+    404: {"description": "Auth provider user not found"},
     401: {"description": "Unauthorized"},
     500: {"description": "Internal server error"}
 }
