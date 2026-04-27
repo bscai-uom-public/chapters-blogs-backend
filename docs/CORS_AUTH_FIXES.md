@@ -20,6 +20,7 @@ For current contracts, use:
 - CORS origins are controlled by `BACKEND_CORS_ORIGINS` as a JSON array string.
 - Restrict origins in production to known frontend domains.
 - Keep `allow_headers` compatible with `Authorization` and JSON API usage.
+- If local frontend hits deployed backend, include `http://localhost:3000` in `BACKEND_CORS_ORIGINS`.
 
 ## Operational reminders
 

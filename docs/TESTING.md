@@ -12,7 +12,7 @@ Testing should combine:
 ## Local prerequisites
 
 - Service running on `http://localhost:3003`
-- MongoDB and Supabase available
+- MongoDB Atlas and Supabase available
 - A valid Supabase access token for protected route tests
 
 ## Fast smoke test checklist
@@ -78,3 +78,15 @@ curl -i https://chapters-blogs-backend.vercel.app/api/v1/blogs/ping
 curl -i https://chapters-blogs-backend.vercel.app/api/v1/blogs/health
 curl -i https://chapters-blogs-backend.vercel.app/api/v1/blogs/public/blogs
 ```
+
+### CORS verification (local frontend to deployed backend)
+
+```bash
+curl -i -X OPTIONS "https://chapters-blogs-backend.vercel.app/api/v1/blogs/public/blogs" \
+  -H "Origin: http://localhost:3000" \
+  -H "Access-Control-Request-Method: GET"
+```
+
+Expected:
+- `200 OK`
+- `access-control-allow-origin: http://localhost:3000`

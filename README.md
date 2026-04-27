@@ -35,7 +35,8 @@ pip install -r requirements.txt
 ### Required environment variables
 
 ```bash
-export BLOG_MONGODB_URL="mongodb://localhost:27017"
+# Atlas URI recommended for local parity with production:
+export BLOG_MONGODB_URL="mongodb+srv://<db_user>:<db_password>@<cluster-host>/blog_db?retryWrites=true&w=majority&appName=<app-name>"
 export BLOG_MONGODB_DB_NAME="blog_db"
 export SUPABASE_URL="https://your-project-ref.supabase.co"
 export SUPABASE_JWT_AUDIENCE="authenticated"
@@ -66,6 +67,11 @@ API docs:
 | `DEBUG_ENDPOINTS_ENABLED` | `app/services/status.py` | `true` | Must set carefully | Additional debug endpoint gate |
 | `DEBUG` | `app/services/status.py` | `false` | Optional | Debug flag in system-info output |
 | `SERVICE_VERSION` | `app/services/status.py` | `unknown` | Recommended | Included in system-info output |
+
+Notes:
+
+- The backend accepts both `BLOG_MONGODB_URL`/`BLOG_MONGODB_DB_NAME` and `MONGODB_URL`/`MONGODB_DB_NAME`.
+- For local frontend (`http://localhost:3000`) calling deployed backend, ensure `BACKEND_CORS_ORIGINS` includes localhost in Vercel env.
 
 ## Endpoint groups
 

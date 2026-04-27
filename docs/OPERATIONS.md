@@ -69,6 +69,7 @@ After each deploy:
 - Confirm latest production deployment is `READY`.
 - Confirm backend alias resolves: `https://chapters-blogs-backend.vercel.app`.
 - Verify Vercel env vars are present (especially `BLOG_MONGODB_URL`, `SUPABASE_URL`, `BACKEND_CORS_ORIGINS`).
+- For local frontend testing (`http://localhost:3000` -> deployed backend), verify `BACKEND_CORS_ORIGINS` includes `http://localhost:3000`.
 - If runtime errors occur, inspect function logs using `vercel logs --environment production`.
 
 ## Rollback checklist

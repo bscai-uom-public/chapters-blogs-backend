@@ -37,7 +37,7 @@
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-export BLOG_MONGODB_URL="mongodb://localhost:27017"
+export BLOG_MONGODB_URL="mongodb+srv://<db_user>:<db_password>@<cluster-host>/blog_db?retryWrites=true&w=majority&appName=<app-name>"
 export BLOG_MONGODB_DB_NAME="blog_db"
 export SUPABASE_URL="https://<your-project-ref>.supabase.co"
 export SUPABASE_JWT_AUDIENCE="authenticated"
@@ -124,8 +124,10 @@ Set in Vercel (recommended):
 Example CORS value:
 
 ```bash
-["https://chapters-frontend-black.vercel.app","https://chapters-frontend.vercel.app"]
+["http://localhost:3000","https://chapters-frontend-black.vercel.app","https://chapters-frontend.vercel.app"]
 ```
+
+If local frontend calls deployed backend, localhost must be present in `BACKEND_CORS_ORIGINS` on Vercel.
 
 ### Deploy
 
