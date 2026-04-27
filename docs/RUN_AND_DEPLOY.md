@@ -128,12 +128,23 @@ Example CORS value:
 ```
 
 If local frontend calls deployed backend, localhost must be present in `BACKEND_CORS_ORIGINS` on Vercel.
+If frontend is redeployed and gets a new Vercel alias, add that alias/domain to `BACKEND_CORS_ORIGINS` as well.
 
 ### Deploy
 
 ```bash
 vercel deploy --prod --yes
 ```
+
+### Clean reset flow (both services, local files)
+
+Use this order when fully resetting deployments:
+
+1. Remove project: `vercel remove <project-name> --yes`
+2. Recreate link: `vercel link --yes`
+3. Add production env vars first (`vercel env add ... production`)
+4. Deploy from local files: `vercel --prod --yes`
+5. Run smoke checks and CORS preflight checks
 
 ## Production hardening checklist
 

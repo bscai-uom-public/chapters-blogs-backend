@@ -45,6 +45,7 @@ Checks:
 - `BLOG_MONGODB_URL` and `BLOG_MONGODB_DB_NAME`
 - MongoDB service health and auth
 - collection-level permissions
+- frontend origin is included in `BACKEND_CORS_ORIGINS` (for browser requests)
 
 ### Symptom: health endpoint indicates degraded/unhealthy
 
@@ -70,6 +71,7 @@ After each deploy:
 - Confirm backend alias resolves: `https://chapters-blogs-backend.vercel.app`.
 - Verify Vercel env vars are present (especially `BLOG_MONGODB_URL`, `SUPABASE_URL`, `BACKEND_CORS_ORIGINS`).
 - For local frontend testing (`http://localhost:3000` -> deployed backend), verify `BACKEND_CORS_ORIGINS` includes `http://localhost:3000`.
+- For each new frontend Vercel alias/domain, verify it is explicitly added to `BACKEND_CORS_ORIGINS`.
 - If runtime errors occur, inspect function logs using `vercel logs --environment production`.
 
 ## Rollback checklist

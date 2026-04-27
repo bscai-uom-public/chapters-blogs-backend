@@ -90,3 +90,15 @@ curl -i -X OPTIONS "https://chapters-blogs-backend.vercel.app/api/v1/blogs/publi
 Expected:
 - `200 OK`
 - `access-control-allow-origin: http://localhost:3000`
+
+### CORS verification (new frontend deployment alias)
+
+```bash
+curl -i -X OPTIONS "https://chapters-blogs-backend.vercel.app/api/v1/blogs/public/blogs" \
+  -H "Origin: https://<frontend-vercel-alias>" \
+  -H "Access-Control-Request-Method: GET"
+```
+
+Expected:
+- `200 OK`
+- `access-control-allow-origin: https://<frontend-vercel-alias>`
