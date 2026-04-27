@@ -1,4 +1,14 @@
-# CORS and Authentication Fixes - Implementation Summary
+# CORS and Authentication Fixes - Historical Notes
+
+## Scope and status
+
+- Document purpose: historical implementation notes for earlier CORS/auth changes.
+- Current canonical behavior docs:
+  - [`../README.md`](../README.md)
+  - [`API_AND_CONTRACTS.md`](API_AND_CONTRACTS.md)
+  - [`AUTH_README.md`](AUTH_README.md)
+  - [`CURRENT_ISSUES.md`](CURRENT_ISSUES.md)
+- Treat this file as background context, not the source of truth for current production posture.
 
 ## Overview
 Three critical issues have been fixed to enable proper frontend integration and Swagger UI testing:

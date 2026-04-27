@@ -1,0 +1,91 @@
+# Operations Runbook
+
+## Service identity
+
+- Service: Chapters Blogs Backend
+- API root: `/api/v1/blogs`
+- Primary dependencies: MongoDB, Keycloak
+
+## Health and diagnostics
+
+Primary endpoints:
+
+- `GET /api/v1/blogs/ping`
+- `GET /api/v1/blogs/health`
+- `GET /api/v1/blogs/docs`
+
+Optional debug endpoints (disable in production):
+
+- `/api/v1/blogs/debug/*`
+
+## On-call quick triage
+
+1. Check service process/container status.
+2. Check app logs for startup/runtime exceptions.
+3. Check `GET /health` response body:
+   - keycloak status
+   - database status
+   - overall status
+4. Validate MongoDB connectivity.
+5. Validate Keycloak token endpoint reachability.
+
+## Common incident patterns
+
+### Symptom: protected routes return 401
+
+Checks:
+
+- caller sends Bearer token (for direct calls)
+- gateway is injecting `X-User-ID` correctly (for proxied calls)
+- Keycloak URL/realm/client settings are correct
+
+### Symptom: blog read/write failures
+
+Checks:
+
+- `BLOG_MONGODB_URL` and `BLOG_MONGODB_DB_NAME`
+- MongoDB service health and auth
+- collection-level permissions
+
+### Symptom: health endpoint indicates degraded/unhealthy
+
+Checks:
+
+- Keycloak availability and client credentials
+- MongoDB ping and count operation viability
+- recent deploy/config drift
+
+## Deployment verification checklist
+
+After each deploy:
+
+1. `ping` works.
+2. `health` payload is well-formed.
+3. one public read route works.
+4. one authenticated write route works.
+5. logs remain stable for several minutes.
+
+## Rollback checklist
+
+1. Revert to previous known-good revision/image.
+2. Restart service.
+3. Re-run smoke checks.
+4. Confirm health and key business path behavior.
+
+## Logging and observability suggestions
+
+Current code uses print-heavy exception logging in places.
+Recommended improvements:
+
+- structured logging with request IDs
+- centralized error/event logs
+- request latency and dependency metrics
+- auth failure and permission-denied trend dashboards
+
+## Production guardrails
+
+- debug routes disabled by policy
+- strict CORS origin allowlist
+- gateway enforced in front of service
+- secret management for DB/Keycloak credentials
+- regular dependency and vulnerability review

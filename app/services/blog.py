@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from bson import json_util
 from app.db.database import collection_blog, collection_comment, collection_reply, collection_like, database
 from app.schemas.blog import BlogPost, Comment, Reply, BlogPostWithUserData, AllBlogsBlogPost, CommentBase, ReplyBase, Like, BlogPostCreate, BlogPostUpdate, CommentCreate, ReplyCreate
-from app.services.keycloak import get_user_by_id_safely
+from app.services.auth_provider import get_user_by_id_safely
 from app.core.exceptions import *
 from typing import List, Dict
 
@@ -45,7 +45,7 @@ async def get_blog_by_id(entity_id: str) -> BlogPostWithUserData: #data type cha
             {"$inc": {"number_of_views": 1}}
         )
         
-        # Inject data from keycloak
+        # Inject data from auth provider cache/profile
         user_data = await get_user_by_id_safely(blog_data["user_id"])
         blog_data["user_username"] = user_data.username
         blog_data["user_image_url"] = user_data.profilePicUrl
@@ -81,7 +81,7 @@ async def create_blog(blog_input: BlogPostCreate, user_id: str) -> BlogPostWithU
         # Convert BlogPost to BlogPostWithUserData for response
         blog_data = blog.dict(by_alias=True)  # Use by_alias=True to get _id instead of blogPost_id
 
-        # Inject data from keycloak
+        # Inject data from auth provider cache/profile
         user_data = await get_user_by_id_safely(blog_data["user_id"])
         blog_data["user_username"] = user_data.username
         blog_data["user_image_url"] = user_data.profilePicUrl
@@ -121,7 +121,7 @@ async def update_blog(blog_id: str, blog_update: BlogPostUpdate, user_id: str) -
         if blog_data is None:
             raise BlogUpdateException
         
-        # Inject data from keycloak
+        # Inject data from auth provider cache/profile
         user_data = await get_user_by_id_safely(blog_data["user_id"])
         blog_data["user_username"] = user_data.username
         blog_data["user_image_url"] = user_data.profilePicUrl
@@ -151,7 +151,7 @@ async def write_comment(comment_input: CommentCreate, user_id: str) -> CommentBa
         created_comment = await collection_comment.find_one({"_id": comment_dict["_id"]})
         comment_data = convert_mongo_doc_to_dict(created_comment)
         if comment_data:
-            # Inject data from keycloak
+            # Inject data from auth provider cache/profile
             user_data = await get_user_by_id_safely(comment_data["user_id"])
             comment_data["user_username"] = user_data.username
             comment_data["user_image_url"] = user_data.profilePicUrl
@@ -185,7 +185,7 @@ async def reply_comment(reply_input: ReplyCreate, user_id: str):
         created_reply = await collection_reply.find_one({"_id": reply_dict["_id"]})
         reply_data = convert_mongo_doc_to_dict(created_reply)
         if reply_data:
-            # Inject data from keycloak
+            # Inject data from auth provider cache/profile
             user_data = await get_user_by_id_safely(reply_data["user_id"])
             reply_data["user_username"] = user_data.username
             reply_data["user_image_url"] = user_data.profilePicUrl
@@ -262,7 +262,7 @@ async def delete_blog_by_id(id: str, user_id: str) -> BlogPostWithUserData:
     if blog_data is None:
         raise BlogDeletionException()
 
-    # Inject data from keycloak
+    # Inject data from auth provider cache/profile
     user_data = await get_user_by_id_safely(blog_data["user_id"])
     blog_data["user_username"] = user_data.username
     blog_data["user_image_url"] = user_data.profilePicUrl
@@ -291,7 +291,7 @@ async def get_blogs_byTags(tags : List[str]) -> List[AllBlogsBlogPost]:
         raise BlogsByTagsNotFoundException(tags)
     cursor=collection_blog.find({"tags": {"$in": tags}}) 
     async for document in cursor: # added async
-        # Inject data from keycloak
+        # Inject data from auth provider cache/profile
         user_data = await get_user_by_id_safely(document["user_id"])
         # Convert BlogPost to AllBlogsBlogPost
         blog_data = {
@@ -320,7 +320,7 @@ async def fetch_replies(parent_content_id: str): #uuid to str ,models.py -> blog
     async for reply in replies_cursor:
         reply_data = convert_mongo_doc_to_dict(reply)
         if reply_data:
-            # Inject data from keycloak
+            # Inject data from auth provider cache/profile
             user_data = await get_user_by_id_safely(reply_data["user_id"])
             reply_data["user_username"] = user_data.username
             reply_data["user_image_url"] = user_data.profilePicUrl
@@ -346,7 +346,7 @@ async def fetch_comments_and_replies(id: str):
     async for comment in comments_cursor:
         comment_data = convert_mongo_doc_to_dict(comment)
         if comment_data:
-            # Inject data from keycloak
+            # Inject data from auth provider cache/profile
             user_data = await get_user_by_id_safely(comment_data["user_id"])
             comment_data["user_username"] = user_data.username
             comment_data["user_image_url"] = user_data.profilePicUrl
@@ -378,7 +378,7 @@ async def update_Comment_Reply(id: str, text: str, user_id: str):
             updated_comment = await collection_comment.find_one({"_id": id})
             comment_data = convert_mongo_doc_to_dict(updated_comment)
             if comment_data:
-                # Inject data from keycloak
+                # Inject data from auth provider cache/profile
                 user_data = await get_user_by_id_safely(comment_data["user_id"])
                 comment_data["user_username"] = user_data.username
                 comment_data["user_image_url"] = user_data.profilePicUrl
@@ -402,7 +402,7 @@ async def update_Comment_Reply(id: str, text: str, user_id: str):
             updated_reply = await collection_reply.find_one({"_id": id})
             reply_data = convert_mongo_doc_to_dict(updated_reply)
             if reply_data:
-                # Inject data from keycloak
+                # Inject data from auth provider cache/profile
                 user_data = await get_user_by_id_safely(reply_data["user_id"])
                 reply_data["user_username"] = user_data.username
                 reply_data["user_image_url"] = user_data.profilePicUrl

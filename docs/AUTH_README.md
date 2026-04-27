@@ -1,87 +1,95 @@
-# Authentication System
+# Authentication and Authorization
 
-## Overview
+## Current behavior summary
 
-This blog API now implements user-based authorization to ensure users can only edit/delete their own content.
+Protected routes in this service depend on `get_current_user_id` from `app/core/security.py`.
+Identity is resolved in this order:
 
-## How it Works
+1. `X-User-ID` header (if present)
+2. Bearer token from `Authorization` header (decoded against Keycloak JWKS)
 
-### Authentication Header
+If neither path succeeds, the route returns `401`.
 
-The system expects a `X-User-ID` header in requests that require authentication. This header should contain the user ID extracted from a JWT token by your API gateway.
+## Route scope
+
+All paths in this document are under `/api/v1/blogs`.
+
+### Protected routes
+
+- `POST /createblog`
+- `PUT /updateblog/{id}`
+- `DELETE /blogs/{id}`
+- `POST /write-comment`
+- `POST /reply-comment`
+- `PUT /edit-comment-reply/{id}`
+- `DELETE /delete-comment-reply/{id}`
+- `POST /blog/{blog_id}/like`
+- `GET /blog/{blog_id}/like-status`
+- Some debug routes, such as `GET /debug/auth-info` and `GET /debug/test-auth-with-bearer`
+
+### Public routes
+
+- `GET /ping`
+- `GET /health`
+- `GET /public/blogs`
+- `GET /public/blogsByTags`
+- `GET /public/blog/{blog_id}`
+- `GET /public/blog/{id}/comments`
+
+## Bearer token flow (direct calls)
+
+1. Client sends `Authorization: Bearer <token>`.
+2. Service loads JWKS from:
+   - `{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/certs`
+3. Token is decoded and validated.
+4. User ID is extracted from `sub` (fallback: `preferred_username`).
+
+Example:
 
 ```bash
-# Example request
-curl -X PUT "http://localhost:8000/api/v1/updateblog/123" \
-  -H "X-User-ID: user123" \
+curl -X POST "http://localhost:3003/api/v1/blogs/createblog" \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"title": "Updated Title", "content": "Updated content", "tags": [1,2]}'
+  -d '{"comment_constraint": true, "tags": ["dev"], "title": "T", "content": "Body"}'
 ```
 
-### Authorization Levels
+## Gateway header flow (`X-User-ID`)
 
-#### Authenticated (`get_current_user_id`)
+When traffic is routed through a trusted gateway:
 
-These endpoints require the `X-User-ID` header:
+1. Gateway validates JWT upstream.
+2. Gateway injects `X-User-ID`.
+3. Service uses header directly for ownership enforcement.
 
-- `POST /createblog` - Creates a blog (user_id auto-assigned)
-- `PUT /updateblog/{id}` - Updates a blog (only owner can edit)
-- `DELETE /blogs/{id}` - Deletes a blog (only owner can delete)
-- `POST /write-comment` - Creates a comment (user_id auto-assigned)
-- `POST /reply-comment` - Creates a reply (user_id auto-assigned)
-- `PUT /edit-comment-reply/{id}` - Edits comment/reply (only owner can edit)
-- `DELETE /delete-comment-reply/{id}` - Deletes comment/reply (only owner can delete)
+Important:
 
-#### Unauthenticated
+- Direct clients must not be able to set this header unchecked.
+- If this backend is reachable directly from the internet, this trust model is unsafe.
 
-These endpoints work without authentication but provide enhanced features when authenticated:
+## Common auth errors
 
-- `GET /blog/{blog_id}` - View blog
-- `GET /blogs` - List all blogs
-- `GET /blogsByTags` - Get blogs by tags
-- `GET /blog/{id}/comments` - Get comments and replies
+`401 Unauthorized` examples:
 
-### Error Responses
+- missing auth header and missing `X-User-ID`
+- invalid token format/signature/issuer
+- expired token
 
-#### 401 Unauthorized
-
-When `X-User-ID` header is missing for required endpoints:
+Typical shape:
 
 ```json
 {
-  "detail": "User authentication required. X-User-ID header missing."
+  "detail": "User authentication required. Provide either: (1) Bearer token in Authorization header, or (2) X-User-ID header."
 }
 ```
 
-#### 403 Forbidden
+`403 Forbidden` examples:
 
-When trying to edit/delete content belonging to another user:
+- user attempts to update/delete content owned by another user
 
-```json
-{
-  "detail": "Permission denied. You can only edit your own blogs."
-}
-```
+## Security considerations
 
-### Security Features
+- `verify_aud` is currently disabled in token decoding logic, which weakens token audience checks.
+- Debug endpoints include auth and user-info helpers; they should be disabled for production.
+- `X-User-ID` precedence over Bearer token means upstream trust boundary must be enforced carefully.
 
-1. **Ownership Validation**: Users can only modify their own content
-2. **Automatic User Assignment**: User IDs are automatically assigned from authentication
-3. **Cascading Deletes**: Deleting a blog removes all associated comments and replies
-4. **Nested Reply Protection**: Deleting a comment/reply also removes nested replies
-
-## Gateway Integration
-
-Your API gateway should:
-
-1. Decode the JWT token to extract the user ID
-2. Include the `X-User-ID` header in API requests
-3. Handle 401/403 errors appropriately
-
-## Database Schema
-
-Make sure your MongoDB documents include the `user_id` field:
-
-- `blogs` collection: `user_id` field
-- `comments` collection: `user_id` field  
-- `replies` collection: `user_id` field
+See [`CURRENT_ISSUES.md`](CURRENT_ISSUES.md) for remediation priorities.

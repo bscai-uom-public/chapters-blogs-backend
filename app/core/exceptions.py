@@ -20,15 +20,15 @@ class AuthenticationRequiredException(BlogAPIException):
             detail=detail
         )
 
-class KeycloakAuthenticationException(BlogAPIException):
-    def __init__(self, detail: str = "Unauthorized access - invalid client or credentials for keycloak"):
+class AuthProviderAuthenticationException(BlogAPIException):
+    def __init__(self, detail: str = "Unauthorized access - invalid client or credentials for auth provider"):
         super().__init__(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=detail
         )
 
-class KeycloakTokenException(BlogAPIException):
-    def __init__(self, detail: str = "Unauthorized access - empty token received from Keycloak"):
+class AuthProviderTokenException(BlogAPIException):
+    def __init__(self, detail: str = "Unauthorized access - empty token received from auth provider"):
         super().__init__(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=detail
@@ -245,16 +245,16 @@ class InvalidLikeValueException(BlogAPIException):
 # External Service Exceptions
 # ============================================================================
 
-class KeycloakServiceException(BlogAPIException):
+class AuthProviderServiceException(BlogAPIException):
     def __init__(self, status_code: int, detail: str):
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal Server Error. Keycloak returned a {status_code} - {detail} error"
+            detail=f"Internal Server Error. Auth provider returned a {status_code} - {detail} error"
         )
 
-class KeycloakUserNotFoundException(BlogAPIException):
+class AuthProviderUserNotFoundException(BlogAPIException):
     def __init__(self, user_id: Optional[str] = None):
-        detail = f"User not found in Keycloak with ID: {user_id}" if user_id else "User not found in Keycloak"
+        detail = f"User not found in auth provider with ID: {user_id}" if user_id else "User not found in auth provider"
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=detail

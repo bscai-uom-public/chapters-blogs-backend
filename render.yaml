@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: chapters-blogs-backend
+    runtime: python
+    plan: free
+    region: singapore
+    repo: https://github.com/bscai-uom-public/chapters-blogs-backend
+    branch: master
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.16
+      - key: BLOG_MONGODB_URL
+        sync: false
+      - key: BLOG_MONGODB_DB_NAME
+        sync: false
+      - key: KEYCLOAK_URL
+        sync: false
+      - key: KEYCLOAK_REALM
+        sync: false
+      - key: BLOG_CLIENT_SECRET
+        sync: false
+      - key: BACKEND_CORS_ORIGINS
+        sync: false
+services:
+  - type: web
+    name: chapters-blogs-backend
+    runtime: python
+    plan: free
+    region: singapore
+    repo: https://github.com/bscai-uom-public/chapters-blogs-backend
+    branch: main
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: BLOG_MONGODB_URL
+        sync: false
+      - key: BLOG_MONGODB_DB_NAME
+        sync: false
+      - key: KEYCLOAK_URL
+        sync: false
+      - key: KEYCLOAK_REALM
+        sync: false
+      - key: BLOG_CLIENT_SECRET
+        sync: false
+      - key: BACKEND_CORS_ORIGINS
+        sync: false

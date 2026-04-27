@@ -4,13 +4,14 @@ from typing import Optional
 import jwt
 from jwt import PyJWKClient
 from app.core.config import settings
+from app.services.auth_provider import cache_user_profile_from_claims
 
-security = HTTPBearer(description="Bearer token from Keycloak", auto_error=False)
+security = HTTPBearer(description="Bearer token from Supabase Auth", auto_error=False)
 
 
 async def decode_token_from_bearer(credentials: HTTPAuthorizationCredentials) -> str:
     """
-    Decode a Bearer token to extract the user_id using Keycloak JWKS via PyJWKClient.
+    Decode a Supabase Bearer token and extract user_id.
     """
     try:
         token = credentials.credentials
@@ -23,8 +24,11 @@ async def decode_token_from_bearer(credentials: HTTPAuthorizationCredentials) ->
         except Exception as e:
             raise HTTPException(status_code=401, detail=f"Invalid token format: {str(e)}")
 
-        # Resolve signing key from JWKS
-        jwks_url = f"{settings.KEYCLOAK_URL}/realms/{settings.REALM}/protocol/openid-connect/certs"
+        if not settings.SUPABASE_URL:
+            raise HTTPException(status_code=500, detail="SUPABASE_URL is not configured.")
+
+        # Resolve signing key from Supabase JWKS
+        jwks_url = f"{settings.SUPABASE_URL}/auth/v1/.well-known/jwks.json"
         jwks_client = PyJWKClient(jwks_url)
         try:
             signing_key = jwks_client.get_signing_key_from_jwt(token)
@@ -32,18 +36,19 @@ async def decode_token_from_bearer(credentials: HTTPAuthorizationCredentials) ->
             raise HTTPException(status_code=401, detail=f"Unable to resolve signing key: {str(e)}")
 
         # Expected values
-        expected_issuer = f"{settings.KEYCLOAK_URL}/realms/{settings.REALM}"
-        expected_audience = settings.CLIENT_ID
+        expected_issuer = f"{settings.SUPABASE_URL}/auth/v1"
+        expected_audience = settings.SUPABASE_JWT_AUDIENCE
 
         # Verify and decode the token using the resolved key and the actual algorithm
         try:
+            verify_audience = bool(expected_audience)
             decoded = jwt.decode(
                 token,
                 signing_key.key,
                 algorithms=[alg] if alg else ["RS256"],
                 issuer=expected_issuer,
-                # Audience check is optional for debugging; in production, ensure token matches CLIENT_ID
-                options={"verify_aud": False}
+                audience=expected_audience if verify_audience else None,
+                options={"verify_aud": verify_audience}
             )
         except jwt.InvalidIssuerError as e:
             # Show what issuer we got vs what we expected
@@ -63,11 +68,12 @@ async def decode_token_from_bearer(credentials: HTTPAuthorizationCredentials) ->
         except jwt.InvalidTokenError as e:
             raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
-        # Extract user_id from token (prefer 'sub' which is the user ID in Keycloak)
+        # Extract user_id from token (prefer 'sub' as canonical user ID)
         user_id = decoded.get("sub") or decoded.get("preferred_username")
         if not user_id:
             raise HTTPException(status_code=401, detail="User ID not found in token")
 
+        cache_user_profile_from_claims(user_id, decoded)
         return user_id
 
     except HTTPException:
@@ -82,24 +88,23 @@ async def get_current_user_id(
 ) -> str:
     """
     Extract user_id from request in this priority order:
-    1. X-User-ID header (set by nginx gateway after token validation)
-    2. Bearer token (for direct API calls and Swagger testing)
+    1. Bearer token (primary mode)
+    2. X-User-ID header only when explicitly allowed via ALLOW_TRUSTED_X_USER_ID
     
-    NOTE: X-User-ID is set by the nginx gateway after it validates the Bearer token.
-    When testing via Swagger, you must provide a valid Bearer token from Keycloak.
+    NOTE: X-User-ID can be accepted only when ALLOW_TRUSTED_X_USER_ID is enabled.
+    For direct API calls and Swagger testing, provide a valid Supabase Bearer token.
     
-    Bearer token format: Authorization: Bearer <token_from_keycloak>
+    Bearer token format: Authorization: Bearer <supabase_access_token>
     """
-    # Priority 1: Check for X-User-ID header (from gateway)
-    if x_user_id:
-        return x_user_id
-    
-    # Priority 2: Check for Bearer token (for direct calls and Swagger)
+    # Priority 1: Bearer token
     if credentials:
         return await decode_token_from_bearer(credentials)
-    
-    # Neither header nor token provided
+
+    # Transitional fallback for trusted gateway mode only.
+    if settings.ALLOW_TRUSTED_X_USER_ID and x_user_id:
+        return x_user_id
+
     raise HTTPException(
         status_code=401,
-        detail="User authentication required. Provide either: (1) Bearer token in Authorization header, or (2) X-User-ID header."
+        detail="User authentication required. Provide a valid Bearer token."
     )
