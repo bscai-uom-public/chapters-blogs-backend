@@ -13,6 +13,12 @@
 - Gateway/Auth layer sits in front of this service.
 - Recommended for production traffic isolation and policy enforcement.
 
+### Profile C: Vercel production (current)
+
+- FastAPI is deployed as a Vercel Python function via `api/index.py` + `vercel.json`.
+- Production URL: `https://chapters-blogs-backend.vercel.app`
+- Environment variables are managed in Vercel Project Settings / `vercel env`.
+
 ## Prerequisites
 
 - Python runtime available
@@ -35,6 +41,7 @@ export BLOG_MONGODB_URL="mongodb://localhost:27017"
 export BLOG_MONGODB_DB_NAME="blog_db"
 export SUPABASE_URL="https://<your-project-ref>.supabase.co"
 export SUPABASE_JWT_AUDIENCE="authenticated"
+export BACKEND_CORS_ORIGINS='["http://localhost:3000"]'
 uvicorn app.main:app --reload --port 3003
 ```
 
@@ -44,7 +51,7 @@ After start:
 
 1. `GET /api/v1/blogs/ping` returns success.
 2. `GET /api/v1/blogs/health` returns JSON with status fields.
-3. Swagger UI is reachable at `/api/v1/blogs/docs`.
+3. Swagger UI is reachable at `/docs`.
 4. One protected endpoint is tested with auth.
 
 ## Docker
@@ -92,6 +99,40 @@ Rollback steps:
 3. Restart service.
 4. Re-run smoke checks.
 
+## Vercel deployment flow
+
+### One-time setup
+
+```bash
+vercel login
+vercel link --yes
+```
+
+### Configure production env vars
+
+Set in Vercel (recommended):
+
+- `BLOG_MONGODB_URL`
+- `BLOG_MONGODB_DB_NAME`
+- `SUPABASE_URL`
+- `SUPABASE_JWT_AUDIENCE`
+- `BACKEND_CORS_ORIGINS` (JSON array string)
+- `ENVIRONMENT`
+- `DEBUG`
+- `DEBUG_ENDPOINTS_ENABLED`
+
+Example CORS value:
+
+```bash
+["https://chapters-frontend-black.vercel.app","https://chapters-frontend.vercel.app"]
+```
+
+### Deploy
+
+```bash
+vercel deploy --prod --yes
+```
+
 ## Production hardening checklist
 
 - Disable debug endpoints by config/policy.
@@ -102,7 +143,7 @@ Rollback steps:
 ## Operational endpoints
 
 - Health: `/api/v1/blogs/health`
-- OpenAPI docs: `/api/v1/blogs/docs`
+- OpenAPI docs: `/docs`
 - OpenAPI JSON: `/api/v1/blogs/openapi.json`
 
 For incident response and troubleshooting, see [`OPERATIONS.md`](OPERATIONS.md).

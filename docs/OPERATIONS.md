@@ -12,7 +12,7 @@ Primary endpoints:
 
 - `GET /api/v1/blogs/ping`
 - `GET /api/v1/blogs/health`
-- `GET /api/v1/blogs/docs`
+- `GET /docs`
 
 Optional debug endpoints (disable in production):
 
@@ -64,6 +64,13 @@ After each deploy:
 4. one authenticated write route works.
 5. logs remain stable for several minutes.
 
+## Vercel-specific checks
+
+- Confirm latest production deployment is `READY`.
+- Confirm backend alias resolves: `https://chapters-blogs-backend.vercel.app`.
+- Verify Vercel env vars are present (especially `BLOG_MONGODB_URL`, `SUPABASE_URL`, `BACKEND_CORS_ORIGINS`).
+- If runtime errors occur, inspect function logs using `vercel logs --environment production`.
+
 ## Rollback checklist
 
 1. Revert to previous known-good revision/image.
@@ -85,6 +92,6 @@ Recommended improvements:
 
 - debug routes disabled by policy
 - strict CORS origin allowlist
-- gateway enforced in front of service
+- Vercel project env vars managed as encrypted values
 - secret management for DB/Supabase credentials
 - regular dependency and vulnerability review

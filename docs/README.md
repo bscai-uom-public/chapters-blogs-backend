@@ -11,8 +11,8 @@ This directory contains service documentation for the Chapters Blogs Backend.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md): service layout, flow, trust boundaries.
 - [`API_AND_CONTRACTS.md`](API_AND_CONTRACTS.md): endpoint catalog, auth and error contracts.
 - [`DATA_MODELS_AND_STORAGE.md`](DATA_MODELS_AND_STORAGE.md): collection schema and integrity notes.
-- [`AUTH_README.md`](AUTH_README.md): auth behavior and gateway/direct flow details.
-- [`RUN_AND_DEPLOY.md`](RUN_AND_DEPLOY.md): local run and deployment process.
+- [`AUTH_README.md`](AUTH_README.md): Supabase JWT auth behavior and error handling.
+- [`RUN_AND_DEPLOY.md`](RUN_AND_DEPLOY.md): local run and Vercel deployment process.
 
 ## Operations and quality docs
 

@@ -49,8 +49,8 @@ uvicorn app.main:app --reload --port 3003
 
 API docs:
 
-- Swagger: `http://localhost:3003/api/v1/blogs/docs`
-- ReDoc: `http://localhost:3003/api/v1/blogs/redoc`
+- Swagger: `http://localhost:3003/docs`
+- ReDoc: `http://localhost:3003/redoc`
 - OpenAPI JSON: `http://localhost:3003/api/v1/blogs/openapi.json`
 
 ## Environment variable reference
@@ -61,7 +61,7 @@ API docs:
 | `BLOG_MONGODB_DB_NAME` | `app/core/config.py` | empty string | Yes | MongoDB database name |
 | `SUPABASE_URL` | `app/core/config.py` | empty string | Yes | Supabase project URL for issuer and JWKS |
 | `SUPABASE_JWT_AUDIENCE` | `app/core/config.py` | `authenticated` | Recommended | Expected JWT audience |
-| `BACKEND_CORS_ORIGINS` | `app/core/config.py` | local defaults | Yes | Allowed frontend origins |
+| `BACKEND_CORS_ORIGINS` | `app/core/config.py` | local defaults | Yes | Allowed frontend origins as JSON array string |
 | `ENVIRONMENT` | `app/services/status.py` | `development` | Recommended | Environment name used by debug gating |
 | `DEBUG_ENDPOINTS_ENABLED` | `app/services/status.py` | `true` | Must set carefully | Additional debug endpoint gate |
 | `DEBUG` | `app/services/status.py` | `false` | Optional | Debug flag in system-info output |
@@ -105,5 +105,6 @@ Debug/internal:
 - `docs/AUTH_README.md`
 - `docs/ARCHITECTURE.md`
 - `docs/API_AND_CONTRACTS.md`
+- `docs/RUN_AND_DEPLOY.md`
 - `docs/OPERATIONS.md`
 - `docs/TESTING.md`

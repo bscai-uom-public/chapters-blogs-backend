@@ -79,5 +79,6 @@ Typical shape:
 
 - Debug endpoints include auth and user-info helpers; they should be disabled for production.
 - Keep `SUPABASE_URL` and `SUPABASE_JWT_AUDIENCE` aligned with your Supabase project settings.
+- Ensure production CORS config (`BACKEND_CORS_ORIGINS`) allows your deployed frontend origins.
 
 See [`CURRENT_ISSUES.md`](CURRENT_ISSUES.md) for remediation priorities.

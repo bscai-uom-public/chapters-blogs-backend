@@ -17,7 +17,7 @@ For current contracts, use:
 
 ## Current CORS baseline
 
-- CORS origins are controlled by `BACKEND_CORS_ORIGINS`.
+- CORS origins are controlled by `BACKEND_CORS_ORIGINS` as a JSON array string.
 - Restrict origins in production to known frontend domains.
 - Keep `allow_headers` compatible with `Authorization` and JSON API usage.
 

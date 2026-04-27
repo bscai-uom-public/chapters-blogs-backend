@@ -70,3 +70,11 @@ Until a full suite exists, CI should at least run:
 - static checks/lint (if configured)
 - import sanity check
 - a small API smoke stage against ephemeral dependencies (Mongo + Supabase test project)
+
+## Production smoke test (Vercel)
+
+```bash
+curl -i https://chapters-blogs-backend.vercel.app/api/v1/blogs/ping
+curl -i https://chapters-blogs-backend.vercel.app/api/v1/blogs/health
+curl -i https://chapters-blogs-backend.vercel.app/api/v1/blogs/public/blogs
+```
