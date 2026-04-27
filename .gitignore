@@ -31,3 +31,4 @@ env.*
 frontend/
 auth-server/
 nginx/
+.vercel
