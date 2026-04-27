@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Header, Depends
+from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 import jwt
@@ -83,26 +83,15 @@ async def decode_token_from_bearer(credentials: HTTPAuthorizationCredentials) ->
 
 
 async def get_current_user_id(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    x_user_id: Optional[str] = Header(None)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ) -> str:
     """
-    Extract user_id from request in this priority order:
-    1. Bearer token (primary mode)
-    2. X-User-ID header only when explicitly allowed via ALLOW_TRUSTED_X_USER_ID
-    
-    NOTE: X-User-ID can be accepted only when ALLOW_TRUSTED_X_USER_ID is enabled.
-    For direct API calls and Swagger testing, provide a valid Supabase Bearer token.
-    
+    Extract user_id from Authorization Bearer token only.
+
     Bearer token format: Authorization: Bearer <supabase_access_token>
     """
-    # Priority 1: Bearer token
     if credentials:
         return await decode_token_from_bearer(credentials)
-
-    # Transitional fallback for trusted gateway mode only.
-    if settings.ALLOW_TRUSTED_X_USER_ID and x_user_id:
-        return x_user_id
 
     raise HTTPException(
         status_code=401,

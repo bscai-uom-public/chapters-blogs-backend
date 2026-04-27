@@ -11,7 +11,6 @@
 ### Profile B: gateway-backed production
 
 - Gateway/Auth layer sits in front of this service.
-- Gateway may inject trusted `X-User-ID`.
 - Recommended for production traffic isolation and policy enforcement.
 
 ## Prerequisites
@@ -36,7 +35,6 @@ export BLOG_MONGODB_URL="mongodb://localhost:27017"
 export BLOG_MONGODB_DB_NAME="blog_db"
 export SUPABASE_URL="https://<your-project-ref>.supabase.co"
 export SUPABASE_JWT_AUDIENCE="authenticated"
-export ALLOW_TRUSTED_X_USER_ID="false"
 uvicorn app.main:app --reload --port 3003
 ```
 
@@ -61,7 +59,6 @@ docker run --rm -p 3003:3003 \
   -e BLOG_MONGODB_DB_NAME="blog_db" \
   -e SUPABASE_URL="https://<your-project-ref>.supabase.co" \
   -e SUPABASE_JWT_AUDIENCE="authenticated" \
-  -e ALLOW_TRUSTED_X_USER_ID="false" \
   chapters-blogs-backend
 ```
 
@@ -99,7 +96,6 @@ Rollback steps:
 
 - Disable debug endpoints by config/policy.
 - Restrict CORS to trusted frontend origins only.
-- Enforce gateway boundary if relying on `X-User-ID`.
 - Enable stricter JWT checks (including audience).
 - Ensure DB and Supabase auth settings come from secret/config store.
 

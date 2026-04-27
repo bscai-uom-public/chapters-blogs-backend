@@ -6,8 +6,7 @@
 - `app/services/blog.py`: ownership enforcement, recursive replies, like counters, delete cascades.
 
 ## Known Pitfalls
-- `verify_aud` is disabled in token decode.
-- Auth allows `X-User-ID` passthrough when present.
+- Supabase URL or audience misconfiguration can break token validation.
 - Debug routes are co-located with production routes and controlled by environment logic.
 - Delete ordering for blog comments/replies likely has orphan risk.
 
@@ -15,7 +14,7 @@
 1. Read endpoint contract and schema before touching service methods.
 2. Keep ownership checks intact for all mutating operations.
 3. Preserve response schema fields expected by frontend.
-4. If touching auth, verify both direct bearer and gateway-assisted flows.
+4. If touching auth, verify bearer-only flow on protected routes.
 
 ## Validation Checklist
 - Protected routes still reject unauthorized and non-owner updates/deletes.

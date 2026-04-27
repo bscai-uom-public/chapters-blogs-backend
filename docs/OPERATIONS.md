@@ -4,7 +4,7 @@
 
 - Service: Chapters Blogs Backend
 - API root: `/api/v1/blogs`
-- Primary dependencies: MongoDB, Keycloak
+- Primary dependencies: MongoDB, Supabase Auth
 
 ## Health and diagnostics
 
@@ -23,11 +23,11 @@ Optional debug endpoints (disable in production):
 1. Check service process/container status.
 2. Check app logs for startup/runtime exceptions.
 3. Check `GET /health` response body:
-   - keycloak status
+   - auth provider status
    - database status
    - overall status
 4. Validate MongoDB connectivity.
-5. Validate Keycloak token endpoint reachability.
+5. Validate Supabase JWKS endpoint reachability.
 
 ## Common incident patterns
 
@@ -36,8 +36,7 @@ Optional debug endpoints (disable in production):
 Checks:
 
 - caller sends Bearer token (for direct calls)
-- gateway is injecting `X-User-ID` correctly (for proxied calls)
-- Keycloak URL/realm/client settings are correct
+- Supabase URL and JWT audience settings are correct
 
 ### Symptom: blog read/write failures
 
@@ -51,7 +50,7 @@ Checks:
 
 Checks:
 
-- Keycloak availability and client credentials
+- Supabase auth provider availability
 - MongoDB ping and count operation viability
 - recent deploy/config drift
 
@@ -87,5 +86,5 @@ Recommended improvements:
 - debug routes disabled by policy
 - strict CORS origin allowlist
 - gateway enforced in front of service
-- secret management for DB/Keycloak credentials
+- secret management for DB/Supabase credentials
 - regular dependency and vulnerability review

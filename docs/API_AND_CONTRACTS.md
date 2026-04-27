@@ -36,18 +36,17 @@ All paths in this file are relative to:
 - `GET /debug/system-info`
 - `GET /debug/test-auth-with-bearer`
 - `POST /debug/get-bearer-token`
-- `GET /debug/keycloak-users`
-- `GET /debug/keycloak-users/{user_id}`
+- `GET /debug/auth-users`
+- `GET /debug/auth-users/{user_id}`
 
 ## Authentication contract
 
 Protected endpoints depend on `get_current_user_id`:
 
-1. Use `X-User-ID` header if present.
-2. Else decode `Authorization: Bearer <token>` via Keycloak JWKS.
-3. If neither is available/valid, return `401`.
+1. Decode `Authorization: Bearer <token>` via Supabase JWKS.
+2. If token is missing/invalid, return `401`.
 
-For security, `X-User-ID` should be accepted only behind a trusted gateway.
+Header-based authentication fallback is not supported.
 
 ## Core request/response examples
 
@@ -80,7 +79,7 @@ Response (`201`):
   "content": "Long form content...",
   "postedAt": "2026-04-23T08:54:30.101Z",
   "post_image": "https://example.com/image.png",
-  "user_id": "keycloak-user-id",
+  "user_id": "supabase-user-id",
   "user_username": "janith",
   "user_image_url": "",
   "user_first_name": "Janith",
@@ -131,7 +130,7 @@ Response:
 Common status codes returned across routes:
 
 - `400`: invalid request values (for example invalid like value).
-- `401`: auth missing/invalid token/header.
+- `401`: auth missing/invalid token.
 - `403`: ownership/permission violation on protected resources.
 - `404`: entity not found (blog/comment/reply/user).
 - `422`: schema validation failure from FastAPI/Pydantic.
@@ -149,7 +148,7 @@ Typical error shape:
 ## Response modeling conventions
 
 - IDs are stored as Mongo `_id` and serialized as logical IDs via schema aliases.
-- Many read payloads include Keycloak-enriched user fields:
+- Many read payloads include auth-provider-enriched user fields:
   - `user_username`
   - `user_image_url`
   - `user_first_name`

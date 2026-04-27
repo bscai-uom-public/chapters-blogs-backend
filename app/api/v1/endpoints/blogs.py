@@ -75,12 +75,12 @@ async def getUserByID(user_id: str):
 async def get_request_headers(request: Request):
     """
     Debug endpoint to inspect all incoming request headers.
-    Useful for verifying nginx gateway is properly setting authentication headers.
+    Useful for verifying request auth headers in debug mode.
     
     Returns all headers including:
-    - X-User-ID (set by nginx after authentication)
-    - Authorization headers
-    - Other custom headers from the gateway
+    - Authorization header
+    - Forwarding headers
+    - Other custom headers
     
     NOTE: This endpoint should be disabled in production for security reasons.
     """
@@ -96,9 +96,8 @@ async def get_auth_info(request: Request, current_user_id: str = Depends(get_cur
     Debug endpoint to verify authentication flow and user ID extraction.
     
     Shows:
-    - Raw X-User-ID header value
     - Processed current_user_id from dependency
-    - Header extraction success/failure
+    - Authorization header presence
     - Authentication flow validation
     
     NOTE: This endpoint should be disabled in production for security reasons.

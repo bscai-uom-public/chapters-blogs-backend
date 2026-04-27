@@ -33,7 +33,6 @@ pydantic_core==2.33.2
 PyJWT==2.10.1
 pymongo==4.13.2
 python-dotenv==1.1.0
-python-jose==3.5.0
 python-multipart==0.0.20
 requests==2.32.4
 rsa==4.9.1

@@ -1,170 +1,140 @@
 """
-Test script to verify authentication system
-Run this after starting your FastAPI server
+Manual auth smoke test for Supabase Bearer-only flow.
+
+Run after starting the FastAPI server and exporting:
+  SUPABASE_TEST_TOKEN_USER1=<valid access token for user A>
+  SUPABASE_TEST_TOKEN_USER2=<valid access token for user B>
 """
 
+import os
 import requests
-import json
 
-BASE_URL = "http://localhost:8000/api/v1/blogs"
+BASE_URL = os.getenv("BLOGS_API_BASE_URL", "http://localhost:3003/api/v1/blogs")
+
+
+def auth_header(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def print_check(name: str, ok: bool, details: str = "") -> None:
+    icon = "PASS" if ok else "FAIL"
+    suffix = f" - {details}" if details else ""
+    print(f"[{icon}] {name}{suffix}")
+
 
 def cleanup_test_data(created_items):
-    """Clean up test data from the database"""
-    print("\n🧹 Cleaning up test data...")
-    print("=" * 30)
-    
-    # Delete in reverse order (replies -> comments -> blogs)
-    # This ensures dependencies are handled correctly
+    """Clean up test data from the database."""
+    print("\nCleaning up test data...")
     cleanup_order = ["reply", "comment", "blog"]
-    
+
     for item_type in cleanup_order:
         items_to_delete = [item for item in created_items if item["type"] == item_type]
-        
+
         for item in items_to_delete:
             response = None
             try:
                 if item_type == "blog":
-                    response = requests.delete(f"{BASE_URL}/blogs/{item['id']}", headers=item["headers"])
+                    response = requests.delete(
+                        f"{BASE_URL}/blogs/{item['id']}", headers=item["headers"]
+                    )
                 elif item_type in ["comment", "reply"]:
-                    response = requests.delete(f"{BASE_URL}/delete-comment-reply/{item['id']}", headers=item["headers"])
-                
-                if response and response.status_code in [200, 204]:
-                    print(f"✅ Deleted {item_type} {item['id']}")
-                elif response:
-                    print(f"⚠️  Failed to delete {item_type} {item['id']}: {response.status_code}")
-                else:
-                    print(f"❌ No response for {item_type} {item['id']}")
-            except Exception as e:
-                print(f"❌ Error deleting {item_type} {item['id']}: {e}")
-    
-    print("🎉 Cleanup completed!")
+                    response = requests.delete(
+                        f"{BASE_URL}/delete-comment-reply/{item['id']}", headers=item["headers"]
+                    )
 
-def test_authentication():
-    print("🔐 Testing Authentication System")
+                deleted = response is not None and response.status_code in [200, 204]
+                print_check(f"delete {item_type} {item['id']}", deleted, str(response.status_code) if response else "no response")
+            except Exception as err:
+                print_check(f"delete {item_type} {item['id']}", False, str(err))
+
+
+def run_authentication_smoke():
+    print("Testing Supabase Bearer authentication")
     print("=" * 50)
-    
-    print("\n0. Testing healthcheck...")
-    response = requests.get(f"{BASE_URL}/health")
-    print(f"Status: {response.status_code}")
-    if response.status_code == 200:
-        print("✅ Healthcheck passed")
-    else:
-        print("❌ Healthcheck failed")
 
-    # Test data
-    user1_id = "user123"
-    user2_id = "user456"
-    created_items = []  # Track created items for cleanup
-      # Test 1: Create blog without authentication (should fail)
-    print("\n1. Testing blog creation without authentication...")
+    token_user1 = os.getenv("SUPABASE_TEST_TOKEN_USER1", "").strip()
+    token_user2 = os.getenv("SUPABASE_TEST_TOKEN_USER2", "").strip()
+    if not token_user1:
+        raise RuntimeError("SUPABASE_TEST_TOKEN_USER1 is required.")
+
+    headers_user1 = auth_header(token_user1)
+    headers_user2 = auth_header(token_user2) if token_user2 else headers_user1
+    created_items = []
+
+    # 0) health check
+    health = requests.get(f"{BASE_URL}/health")
+    print_check("health endpoint", health.status_code == 200, f"status={health.status_code}")
+
+    # 1) missing auth should fail
     blog_data = {
         "comment_constraint": True,
         "tags": [1, 2],
         "number_of_views": 0,
-        "title": "Test Blog",
-        "content": "This is a test blog content"
+        "title": "Supabase Auth Test Blog",
+        "content": "This validates bearer-only auth behavior.",
     }
-    
-    response = requests.post(f"{BASE_URL}/createblog", json=blog_data)
-    print(f"Status: {response.status_code}")
-    if response.status_code == 401:
-        print("✅ Correctly rejected - Authentication required")
+    unauth = requests.post(f"{BASE_URL}/createblog", json=blog_data)
+    print_check("reject missing auth", unauth.status_code == 401, f"status={unauth.status_code}")
+
+    # 2) invalid bearer should fail
+    invalid = requests.post(
+        f"{BASE_URL}/createblog",
+        json=blog_data,
+        headers=auth_header("not-a-valid-jwt"),
+    )
+    print_check("reject invalid bearer token", invalid.status_code == 401, f"status={invalid.status_code}")
+
+    # 3) X-User-ID fallback must be rejected
+    header_only = requests.post(
+        f"{BASE_URL}/createblog",
+        json=blog_data,
+        headers={"X-User-ID": "legacy-header-user"},
+    )
+    print_check("reject header-only auth", header_only.status_code == 401, f"status={header_only.status_code}")
+
+    # 4) valid bearer should pass
+    create = requests.post(f"{BASE_URL}/createblog", json=blog_data, headers=headers_user1)
+    created = create.status_code in [200, 201]
+    print_check("allow valid bearer token", created, f"status={create.status_code}")
+    if not created:
+        print(create.text)
+        return
+
+    payload = create.json()
+    blog_id = payload.get("blog_id") or payload.get("blogPost_id") or payload.get("_id")
+    created_items.append({"type": "blog", "id": blog_id, "headers": headers_user1})
+    print_check("create blog id extracted", bool(blog_id), str(blog_id))
+
+    # 5) ownership check with second user token (or same token fallback)
+    edit_attempt = requests.put(
+        f"{BASE_URL}/updateblog/{blog_id}",
+        json={"title": "Unauthorized update", "content": "Should fail", "tags": [1]},
+        headers=headers_user2,
+    )
+    if token_user2:
+        print_check("forbid update by different user", edit_attempt.status_code == 403, f"status={edit_attempt.status_code}")
     else:
-        print("❌ Should have been rejected")
-    
-    # Test 2: Create blog with authentication (should succeed)
-    print("\n2. Testing blog creation with authentication...")
-    headers = {"X-User-ID": user1_id}
-    
-    response = requests.post(f"{BASE_URL}/createblog", json=blog_data, headers=headers)
-    print(f"Status: {response.status_code}")
-    if response.status_code == 200:
-        blog_id = response.json().get("blogPost_id") or response.json().get("_id")
-        created_items.append({"type": "blog", "id": blog_id, "headers": headers})
-        print(f"✅ Blog created successfully! ID: {blog_id}")
-        
-        # Test 3: Try to edit blog with different user (should fail)
-        print("\n3. Testing blog edit with different user...")
-        headers_user2 = {"X-User-ID": user2_id}
-        
-        edit_response = requests.put(
-            f"{BASE_URL}/updateblog/{blog_id}",
-            params={"title": "Hacked Title", "content": "Hacked content", "tags": [1]},
-            headers=headers_user2
-        )
-        print(f"Status: {edit_response.status_code}")
-        if edit_response.status_code == 403:
-            print("✅ Correctly rejected - Permission denied")
-        else:
-            print("❌ Should have been rejected")
-        
-        # Test 4: Edit blog with correct user (should succeed)
-        print("\n4. Testing blog edit with correct user...")
-        edit_response = requests.put(
-            f"{BASE_URL}/updateblog/{blog_id}",
-            params={"title": "Updated Title", "content": "Updated content", "tags": [1, 2]},
-            headers=headers
-        )
-        print(f"Status: {edit_response.status_code}")
-        if edit_response.status_code == 200:
-            print("✅ Blog updated successfully!")
-        else:
-            print(f"❌ Update failed: {edit_response.text}")
-        
-        # Test 5: Create a comment on the blog
-        print("\n5. Testing comment creation...")
-        comment_data = {
-            "blogPost_id": blog_id,
-            "text": "This is a test comment"
-        }
-        comment_response = requests.post(f"{BASE_URL}/write-comment", json=comment_data, headers=headers)
-        print(f"Comment Status: {comment_response.status_code}")
-        if comment_response.status_code == 200:
-            comment_id = comment_response.json().get("comment_id") or comment_response.json().get("_id")
-            created_items.append({"type": "comment", "id": comment_id, "headers": headers})
-            print(f"✅ Comment created successfully! ID: {comment_id}")
-            
-            # Test 6: Create a reply to the comment
-            print("\n6. Testing reply creation...")
-            reply_data = {
-                "parentContent_id": comment_id,
-                "text": "This is a test reply"
-            }
-            reply_response = requests.post(f"{BASE_URL}/reply-comment", json=reply_data, headers=headers)
-            print(f"Reply Status: {reply_response.status_code}")
-            if reply_response.status_code == 200:
-                reply_id = reply_response.json().get("reply_id") or reply_response.json().get("_id")
-                created_items.append({"type": "reply", "id": reply_id, "headers": headers})
-                print(f"✅ Reply created successfully! ID: {reply_id}")
-                
-                # Test 7: Try to edit comment with different user (should fail)
-                print("\n7. Testing comment edit with different user...")
-                edit_comment_response = requests.put(
-                    f"{BASE_URL}/edit-comment-reply/{comment_id}",
-                    params={"text": "Hacked comment"},
-                    headers=headers_user2
-                )
-                print(f"Status: {edit_comment_response.status_code}")
-                if edit_comment_response.status_code == 403:
-                    print("✅ Correctly rejected - Permission denied")
-                else:
-                    print("❌ Should have been rejected")
-                    
-            else:
-                print(f"❌ Reply creation failed: {reply_response.text}")
-        else:
-            print(f"❌ Comment creation failed: {comment_response.text}")
-            
-    else:
-        print(f"❌ Blog creation failed: {response.text}")
-    
-    # Cleanup: Delete all created items
+        print_check("update with same fallback token", edit_attempt.status_code in [200, 201], f"status={edit_attempt.status_code}")
+
+    # 6) owner update should pass
+    owner_update = requests.put(
+        f"{BASE_URL}/updateblog/{blog_id}",
+        json={"title": "Owner update", "content": "Updated by owner", "tags": [1, 2]},
+        headers=headers_user1,
+    )
+    print_check("allow owner update", owner_update.status_code == 200, f"status={owner_update.status_code}")
+
+    # 7) auth debug endpoint should pass with bearer
+    debug_auth = requests.get(f"{BASE_URL}/debug/test-auth-with-bearer", headers=headers_user1)
+    print_check("debug bearer auth endpoint", debug_auth.status_code == 200, f"status={debug_auth.status_code}")
+
     cleanup_test_data(created_items)
+
 
 if __name__ == "__main__":
     try:
-        test_authentication()
+        run_authentication_smoke()
     except requests.exceptions.ConnectionError:
-        print("❌ Could not connect to the server. Make sure your FastAPI server is running on localhost:8000")
-    except Exception as e:
-        print(f"❌ Test failed with error: {e}")
+        print("Could not connect to the server. Ensure FastAPI is running and BLOGS_API_BASE_URL is correct.")
+    except Exception as err:
+        print(f"Test failed with error: {err}")

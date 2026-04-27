@@ -12,25 +12,21 @@ Testing should combine:
 ## Local prerequisites
 
 - Service running on `http://localhost:3003`
-- MongoDB and Keycloak available
-- A valid user in Keycloak for protected route tests
+- MongoDB and Supabase available
+- A valid Supabase access token for protected route tests
 
 ## Fast smoke test checklist
 
 1. `GET /api/v1/blogs/ping` returns success.
 2. `GET /api/v1/blogs/public/blogs` returns list or expected not-found error.
-3. Acquire token and call one protected endpoint.
+3. Acquire Supabase token and call one protected endpoint.
 4. `GET /api/v1/blogs/health` returns structured health payload.
 
 ## Manual API tests
 
-### Obtain token (debug helper)
+### Obtain token
 
-```bash
-curl -X POST "http://localhost:3003/api/v1/blogs/debug/get-bearer-token" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"test-user","password":"test-password"}'
-```
+Use your frontend Supabase sign-in flow and copy the returned access token.
 
 ### Protected endpoint test
 
@@ -57,11 +53,11 @@ curl -X POST "http://localhost:3003/api/v1/blogs/createblog" \
 
 ## Existing test artifact
 
-The repository includes `tests/test_auth.py`, which is a manual script-style checker rather than a full `pytest` suite.
+The repository includes `tests/test_auth.py`, which is a manual script-style checker for Bearer-only auth behavior rather than a full `pytest` suite.
 
 ## Recommended automated test priorities
 
-1. Auth precedence and failure behavior in `get_current_user_id`.
+1. Bearer token failure behavior in `get_current_user_id`.
 2. Blog deletion cascade (blog/comments/replies consistency).
 3. Health endpoint status-code behavior.
 4. Reply recursion limits/edge behavior.
@@ -73,4 +69,4 @@ Until a full suite exists, CI should at least run:
 
 - static checks/lint (if configured)
 - import sanity check
-- a small API smoke stage against ephemeral dependencies (Mongo + Keycloak mocks or test realm)
+- a small API smoke stage against ephemeral dependencies (Mongo + Supabase test project)

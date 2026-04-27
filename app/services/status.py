@@ -102,7 +102,7 @@ async def get_comprehensive_health_check() -> Dict[str, Any]:
 async def get_request_headers_debug(request: Request) -> Dict[str, Any]:
     """
     Debug utility to inspect all incoming request headers.
-    Useful for verifying nginx gateway is properly setting authentication headers.
+    Useful for verifying incoming authentication headers.
     
     Args:
         request: FastAPI Request object containing headers
@@ -117,7 +117,6 @@ async def get_request_headers_debug(request: Request) -> Dict[str, Any]:
     
     # Highlight important authentication-related headers
     auth_headers = {
-        "x-user-id": headers.get("x-user-id"),
         "authorization": headers.get("authorization"),
         "x-forwarded-for": headers.get("x-forwarded-for"),
         "x-real-ip": headers.get("x-real-ip"),
@@ -137,7 +136,6 @@ async def get_request_headers_debug(request: Request) -> Dict[str, Any]:
         "all_headers": headers,
         "headers_count": len(headers),
         "nginx_headers_present": {
-            "x_user_id_present": "x-user-id" in headers,
             "x_forwarded_for_present": "x-forwarded-for" in headers,
             "x_real_ip_present": "x-real-ip" in headers,
             "authorization_present": "authorization" in headers,
@@ -155,20 +153,17 @@ async def get_auth_debug_info(request: Request, current_user_id: str) -> Dict[st
         
     Returns:
         Dictionary containing:
-        - Raw X-User-ID header value
         - Processed current_user_id from dependency
-        - Header extraction success/failure
+        - Authorization presence
         - Authentication flow validation
     """
-    raw_user_id_header = request.headers.get("x-user-id")
     auth_header = request.headers.get("authorization")
     
     # Additional debugging info
     debugging_info = {
         "header_case_variations": {
-            "x-user-id": request.headers.get("x-user-id"),
-            "X-User-ID": request.headers.get("X-User-ID"),
-            "X-USER-ID": request.headers.get("X-USER-ID"),
+            "authorization": request.headers.get("authorization"),
+            "Authorization": request.headers.get("Authorization"),
         },
         "all_x_headers": {k: v for k, v in request.headers.items() if k.lower().startswith("x-")},
     }
@@ -176,14 +171,10 @@ async def get_auth_debug_info(request: Request, current_user_id: str) -> Dict[st
     return {
         "message": "Authentication debug information",
         "timestamp": datetime.utcnow().isoformat(),
-        "raw_x_user_id_header": raw_user_id_header,
         "processed_current_user_id": current_user_id,
         "authorization_header_present": auth_header is not None,
         "authorization_header_type": auth_header.split(" ")[0] if auth_header else None,
-        "header_extraction_successful": raw_user_id_header is not None,
-        "values_match": raw_user_id_header == current_user_id,
         "user_authenticated": current_user_id is not None,
-        "nginx_gateway_working": raw_user_id_header is not None and current_user_id is not None,
         "debugging_info": debugging_info
     }
 

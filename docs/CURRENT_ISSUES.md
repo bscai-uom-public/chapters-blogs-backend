@@ -9,40 +9,39 @@
 
 ## Severity: Critical
 
-### 1) Identity spoofing risk via `X-User-ID` precedence
+### 1) Legacy identity spoofing risk (resolved)
 
 Evidence:
 
-- `app/core/security.py` returns `x_user_id` immediately when present.
+- Historical behavior used to accept `X-User-ID` directly.
 
 Impact:
 
-- If the backend is reachable directly by untrusted callers, they can spoof user identity and perform protected actions.
+- If header passthrough were enabled, untrusted callers could spoof user identity.
 
 Recommended fix:
 
-- Accept `X-User-ID` only from trusted network/gateway boundary.
-- Consider requiring signed/internal headers or mTLS between gateway and service.
-- Optionally prefer validated Bearer token when both are present.
+- Keep Bearer-only auth in `app/core/security.py`.
+- Do not reintroduce trusted header fallback.
 
 Verification approach:
 
-- Send a direct request with forged `X-User-ID` and no valid upstream trust controls; confirm it is rejected after fix.
+- Send a direct request with forged `X-User-ID` and no bearer token; confirm `401`.
 
-### 2) Token audience validation disabled
+### 2) Token audience validation (resolved)
 
 Evidence:
 
-- `app/core/security.py` decodes JWT with `options={"verify_aud": False}`.
+- `app/core/security.py` validates audience when `SUPABASE_JWT_AUDIENCE` is configured.
 
 Impact:
 
-- Tokens minted for a different audience/client may be accepted.
+- Invalid audience tokens should now be rejected.
 
 Recommended fix:
 
-- Enable audience verification and set expected audience to service client ID.
-- Add tests for valid and invalid `aud` claims.
+- Keep `SUPABASE_JWT_AUDIENCE` aligned with Supabase token settings.
+- Maintain tests for valid and invalid `aud` claims.
 
 Verification approach:
 

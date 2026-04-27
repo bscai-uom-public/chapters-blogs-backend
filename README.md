@@ -4,53 +4,17 @@ FastAPI backend for blog posts, comments, replies, and likes in the AI Portal ec
 
 ## What this service does
 
-- Serves versioned REST APIs under `/api/v1/blogs`.
+- Serves REST APIs under `/api/v1/blogs`.
 - Stores blog-domain data in MongoDB (`Blogs`, `Comments`, `Replies`, `Likes`).
-- Uses Keycloak for user identity and profile enrichment.
-- Supports two auth input modes:
-  - trusted gateway header (`X-User-ID`)
-  - direct Bearer token validation against Keycloak JWKS
+- Uses Supabase Auth JWT validation for protected routes.
 
-## Architecture overview
+## Authentication model
 
-```text
-Client -> (Gateway or direct call) -> FastAPI router -> service layer -> MongoDB
-                                                 -> Keycloak (token + user info)
-```
+Protected routes require:
 
-Core request path:
+- `Authorization: Bearer <supabase_access_token>`
 
-1. Route handler in `app/api/v1/endpoints/blogs.py`
-2. Auth dependency `get_current_user_id` in `app/core/security.py` (for protected routes)
-3. Domain logic in `app/services/blog.py`
-4. Persistence via collections from `app/db/database.py`
-5. Response schemas from `app/schemas/blog.py`
-
-## Project structure
-
-```text
-app/
-  main.py                      # FastAPI app bootstrapping + CORS + OpenAPI path
-  api/v1/api.py                # API v1 router composition
-  api/v1/endpoints/blogs.py    # All health/blog/comment/like/debug endpoints
-  core/config.py               # Runtime configuration
-  core/security.py             # Auth dependency and Bearer token decoding
-  core/exceptions.py           # Domain-specific HTTP exceptions
-  core/service_tracker.py      # Uptime tracking used by health endpoint
-  db/database.py               # Mongo client + collection handles
-  schemas/blog.py              # Request/response models and health schemas
-  schemas/responses.py         # OpenAPI response metadata
-  services/blog.py             # Blog/comment/reply/like business logic
-  services/keycloak.py         # Keycloak token and user queries
-  services/status.py           # Health and debug support logic
-docs/
-  ARCHITECTURE.md
-  API_AND_CONTRACTS.md
-  DATA_MODELS_AND_STORAGE.md
-  AUTH_README.md
-  RUN_AND_DEPLOY.md
-  CORS_AUTH_FIXES.md
-```
+The backend validates tokens against Supabase JWKS and uses `sub` as the authenticated user ID.
 
 ## Quick start (local)
 
@@ -58,7 +22,7 @@ docs/
 
 - Python 3.10+ (recommended)
 - MongoDB reachable from this service
-- Keycloak realm/client available
+- Supabase project URL and valid access token flow from frontend
 
 ### Install
 
@@ -73,9 +37,8 @@ pip install -r requirements.txt
 ```bash
 export BLOG_MONGODB_URL="mongodb://localhost:27017"
 export BLOG_MONGODB_DB_NAME="blog_db"
-export KEYCLOAK_URL="http://localhost:8080"  # include /keycloak if your deployment uses that base path
-export KEYCLOAK_REALM="master"
-export BLOG_CLIENT_SECRET="your_client_secret"
+export SUPABASE_URL="https://your-project-ref.supabase.co"
+export SUPABASE_JWT_AUDIENCE="authenticated"
 ```
 
 ### Run
@@ -96,15 +59,15 @@ API docs:
 |---|---|---|---|---|
 | `BLOG_MONGODB_URL` | `app/core/config.py` | `mongodb://localhost:27017` | Yes | MongoDB connection URI |
 | `BLOG_MONGODB_DB_NAME` | `app/core/config.py` | empty string | Yes | MongoDB database name |
-| `KEYCLOAK_URL` | `app/core/config.py` | `https://aistudentchapter.lk/keycloak` | Yes | Keycloak base URL |
-| `KEYCLOAK_REALM` | `app/core/config.py` | `master` | Yes | Keycloak realm |
-| `BLOG_CLIENT_SECRET` | `app/core/config.py` | empty string | Yes | Keycloak confidential client secret |
+| `SUPABASE_URL` | `app/core/config.py` | empty string | Yes | Supabase project URL for issuer and JWKS |
+| `SUPABASE_JWT_AUDIENCE` | `app/core/config.py` | `authenticated` | Recommended | Expected JWT audience |
+| `BACKEND_CORS_ORIGINS` | `app/core/config.py` | local defaults | Yes | Allowed frontend origins |
 | `ENVIRONMENT` | `app/services/status.py` | `development` | Recommended | Environment name used by debug gating |
 | `DEBUG_ENDPOINTS_ENABLED` | `app/services/status.py` | `true` | Must set carefully | Additional debug endpoint gate |
 | `DEBUG` | `app/services/status.py` | `false` | Optional | Debug flag in system-info output |
 | `SERVICE_VERSION` | `app/services/status.py` | `unknown` | Recommended | Included in system-info output |
 
-## API endpoint groups
+## Endpoint groups
 
 Public:
 
@@ -134,38 +97,13 @@ Debug/internal:
 - `GET /api/v1/blogs/debug/system-info`
 - `GET /api/v1/blogs/debug/test-auth-with-bearer`
 - `POST /api/v1/blogs/debug/get-bearer-token`
-- `GET /api/v1/blogs/debug/keycloak-users`
-- `GET /api/v1/blogs/debug/keycloak-users/{user_id}`
-
-## Auth behavior
-
-Protected routes use `get_current_user_id` with this precedence:
-
-1. `X-User-ID` header if present.
-2. Bearer token (`Authorization: Bearer ...`) decoded and verified via Keycloak JWKS.
-
-Important security note:
-
-- Trusting `X-User-ID` is only safe behind a trusted gateway that injects it.
-- Direct exposure of this service without gateway hardening can allow header spoofing.
-
-See [`docs/AUTH_README.md`](docs/AUTH_README.md) for full details and examples.
-
-## Deployment notes
-
-For runbook-grade deploy/rollback steps, see:
-
-- [`docs/RUN_AND_DEPLOY.md`](docs/RUN_AND_DEPLOY.md)
-- [`docs/OPERATIONS.md`](docs/OPERATIONS.md)
-
-## Security hardening checklist
-
-- Disable or remove debug endpoints in non-dev environments.
-- Enforce strict gateway controls if `X-User-ID` is accepted.
-- Enable audience validation in Bearer token verification (`verify_aud`).
-- Restrict CORS origins to known frontends only.
-- Use secret management for `BLOG_CLIENT_SECRET` and DB credentials.
+- `GET /api/v1/blogs/debug/auth-users`
+- `GET /api/v1/blogs/debug/auth-users/{user_id}`
 
 ## Documentation index
 
-See [`docs/README.md`](docs/README.md) for the full docs map.
+- `docs/AUTH_README.md`
+- `docs/ARCHITECTURE.md`
+- `docs/API_AND_CONTRACTS.md`
+- `docs/OPERATIONS.md`
+- `docs/TESTING.md`

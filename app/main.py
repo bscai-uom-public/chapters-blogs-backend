@@ -19,7 +19,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],  # Expose all headers including X-User-ID, X-User-Role, etc.
+    expose_headers=["*"],  # Expose response headers for browser clients.
 )
 
 # Include API router

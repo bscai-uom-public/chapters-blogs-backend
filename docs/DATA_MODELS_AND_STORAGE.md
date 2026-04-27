@@ -59,7 +59,7 @@ Fields include:
 ## Data access patterns
 
 - CRUD operations are implemented directly in `app/services/blog.py`.
-- Public read operations enrich records with Keycloak profile fields.
+- Public read operations enrich records with auth-provider profile fields.
 - Comment thread reads recursively fetch nested replies by `parentContent_id`.
 
 ## Consistency and integrity rules (current behavior)

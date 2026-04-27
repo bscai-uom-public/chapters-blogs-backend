@@ -14,7 +14,7 @@ class BlogAPIException(HTTPException):
 # ============================================================================
 
 class AuthenticationRequiredException(BlogAPIException):
-    def __init__(self, detail: str = "User authentication required. X-User-ID header missing."):
+    def __init__(self, detail: str = "User authentication required. Provide a valid Bearer token."):
         super().__init__(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=detail

@@ -30,7 +30,6 @@ class Settings(BaseSettings):
     # Supabase auth settings
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_JWT_AUDIENCE: str = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated")
-    ALLOW_TRUSTED_X_USER_ID: bool = os.getenv("ALLOW_TRUSTED_X_USER_ID", "false").lower() == "true"
 
     class Config:
         case_sensitive = True
