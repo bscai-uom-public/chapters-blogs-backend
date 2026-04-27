@@ -8,6 +8,7 @@ from app.core.exceptions import *
 from typing import List, Dict
 
 CONTENT_PREVIEW_LENGTH = 150  # Length of content preview for AllBlogsBlogPost
+MAX_REPLY_DEPTH = 25
 
 def convert_mongo_doc_to_dict(doc):
     """Convert MongoDB document to dict compatible with Pydantic models"""
@@ -29,6 +30,42 @@ def convert_mongo_doc_to_dict(doc):
     
     return doc_dict
 
+
+def _safe_string(value, default: str = "") -> str:
+    if value is None:
+        return default
+    return str(value)
+
+
+def _safe_content_preview(content: str) -> str:
+    if len(content) > CONTENT_PREVIEW_LENGTH:
+        return f"{content[:CONTENT_PREVIEW_LENGTH]}..."
+    return content
+
+
+def _build_preview_blog_data(blog: dict, user_data) -> dict:
+    title = _safe_string(blog.get("title"), "Untitled")
+    content = _safe_string(blog.get("content"), "")
+    user_id = _safe_string(blog.get("user_id"))
+    posted_at = blog.get("postedAt")
+
+    return {
+        "_id": _safe_string(blog.get("_id")),
+        "comment_constraint": bool(blog.get("comment_constraint", True)),
+        "tags": blog.get("tags") if isinstance(blog.get("tags"), list) else [],
+        "number_of_views": int(blog.get("number_of_views", 0) or 0),
+        "likes_count": int(blog.get("likes_count", 0) or 0),
+        "title": title,
+        "content_preview": _safe_content_preview(content),
+        "postedAt": posted_at,
+        "post_image": blog.get("post_image"),
+        "user_id": user_id,
+        "user_username": user_data.username,
+        "user_image_url": user_data.profilePicUrl,
+        "user_first_name": user_data.firstName,
+        "user_last_name": user_data.lastName,
+    }
+
 async def get_blog_by_id(entity_id: str) -> BlogPostWithUserData: #data type changed from int to str
     try:
         entity = await collection_blog.find_one({"_id": entity_id}) #blogPost_id to _id , becaue in models.py ,"blogPost_id" changed to "_id" by  " alias="_id" "
@@ -37,6 +74,14 @@ async def get_blog_by_id(entity_id: str) -> BlogPostWithUserData: #data type cha
         blog_data = convert_mongo_doc_to_dict(entity)
         if not blog_data:
             raise BlogNotFoundException(entity_id)
+        blog_data.setdefault("comment_constraint", True)
+        blog_data.setdefault("tags", [])
+        blog_data.setdefault("number_of_views", 0)
+        blog_data.setdefault("likes_count", 0)
+        blog_data.setdefault("title", "Untitled")
+        blog_data.setdefault("content", "")
+        blog_data.setdefault("postedAt", None)
+        blog_data["user_id"] = _safe_string(blog_data.get("user_id"))
 
         # INFO: Design decision: current view is not considered for the view count. Idea is user want to know how many previous views
         # Increment the number_of_views by 1
@@ -46,7 +91,7 @@ async def get_blog_by_id(entity_id: str) -> BlogPostWithUserData: #data type cha
         )
         
         # Inject data from auth provider cache/profile
-        user_data = await get_user_by_id_safely(blog_data["user_id"])
+        user_data = await get_user_by_id_safely(_safe_string(blog_data.get("user_id")))
         blog_data["user_username"] = user_data.username
         blog_data["user_image_url"] = user_data.profilePicUrl
         blog_data["user_first_name"] = user_data.firstName
@@ -225,24 +270,12 @@ async def get_all_blogs() -> List[AllBlogsBlogPost]:
             # Fallback for missing user data
             user_data = await get_user_by_id_safely(blog.get("user_id", ""))
         
-        # Convert BlogPost to AllBlogsBlogPost
-        blog_data = {
-            "_id": str(blog["_id"]),  # Use _id as the key since AllBlogsBlogPost uses alias="_id"
-            "comment_constraint": blog["comment_constraint"],
-            "tags": blog["tags"],
-            "number_of_views": blog["number_of_views"],
-            "likes_count": blog.get("likes_count", 0),  # Default to 0 for backward compatibility
-            "title": blog["title"],
-            "content_preview": blog["content"][:CONTENT_PREVIEW_LENGTH] + "..." if len(blog["content"]) > CONTENT_PREVIEW_LENGTH else blog["content"],  # Create preview from content
-            "postedAt": blog["postedAt"],
-            "post_image": blog.get("post_image"),
-            "user_id": blog.get("user_id"),
-            "user_username": user_data.username,
-            "user_image_url": user_data.profilePicUrl,
-            "user_first_name": user_data.firstName,
-            "user_last_name": user_data.lastName
-        }
-        blogs.append(AllBlogsBlogPost(**blog_data))
+        blog_data = _build_preview_blog_data(blog, user_data)
+        try:
+            blogs.append(AllBlogsBlogPost(**blog_data))
+        except Exception:
+            # Skip malformed legacy documents instead of failing the whole endpoint.
+            continue
     if len(blogs) == 0:
         raise NoBlogsFoundException()
     return blogs
@@ -292,29 +325,21 @@ async def get_blogs_byTags(tags : List[str]) -> List[AllBlogsBlogPost]:
     cursor=collection_blog.find({"tags": {"$in": tags}}) 
     async for document in cursor: # added async
         # Inject data from auth provider cache/profile
-        user_data = await get_user_by_id_safely(document["user_id"])
-        # Convert BlogPost to AllBlogsBlogPost
-        blog_data = {
-            "_id": str(document["_id"]),  # Use _id as the key since AllBlogsBlogPost uses alias="_id"
-            "comment_constraint": document["comment_constraint"],
-            "tags": document["tags"],
-            "number_of_views": document["number_of_views"],
-            "likes_count": document.get("likes_count", 0),  # Default to 0 for backward compatibility
-            "title": document["title"],
-            "content_preview": document["content"][:CONTENT_PREVIEW_LENGTH] + "..." if len(document["content"]) > 200 else document["content"],  # Create preview from content
-            "postedAt": document["postedAt"],
-            "post_image": document.get("post_image"),
-            "user_id": document.get("user_id"),
-            "user_username": user_data.username,
-            "user_image_url": user_data.profilePicUrl,
-            "user_first_name": user_data.firstName,
-            "user_last_name": user_data.lastName
-        }
-        blogs.append(AllBlogsBlogPost(**blog_data))
+        user_data = await get_user_by_id_safely(_safe_string(document.get("user_id")))
+        blog_data = _build_preview_blog_data(document, user_data)
+        try:
+            blogs.append(AllBlogsBlogPost(**blog_data))
+        except Exception:
+            continue
     return blogs
 
 
-async def fetch_replies(parent_content_id: str): #uuid to str ,models.py -> blogPost_id changed from uuid to str
+async def fetch_replies(parent_content_id: str, depth: int = 0, visited: set | None = None): #uuid to str ,models.py -> blogPost_id changed from uuid to str
+    if visited is None:
+        visited = set()
+    if depth >= MAX_REPLY_DEPTH:
+        return []
+
     replies_cursor = collection_reply.find({"parentContent_id": parent_content_id}) #await removed, TypeError: object AsyncIOMotorCursor can't be used in 'await' expression 
     replies = []
     async for reply in replies_cursor:
@@ -327,9 +352,11 @@ async def fetch_replies(parent_content_id: str): #uuid to str ,models.py -> blog
             reply_data["user_first_name"] = user_data.firstName
             reply_data["user_last_name"] = user_data.lastName
             reply_obj = ReplyBase(**reply_data)
-            # Recursively fetch replies for each reply 
-            # TODO: Any way to limit recursion depth or avoid recursion all together?
-            reply_obj.replies = await fetch_replies(reply_obj.reply_id)
+            if reply_obj.reply_id in visited:
+                reply_obj.replies = []
+            else:
+                visited.add(reply_obj.reply_id)
+                reply_obj.replies = await fetch_replies(reply_obj.reply_id, depth + 1, visited)
             replies.append(reply_obj)
     
     return replies
@@ -354,7 +381,7 @@ async def fetch_comments_and_replies(id: str):
             comment_data["user_last_name"] = user_data.lastName
             comment_obj = CommentBase(**comment_data)
             # Fetch replies for each comment
-            comment_obj.replies = await fetch_replies(comment_obj.comment_id)
+            comment_obj.replies = await fetch_replies(comment_obj.comment_id, 0, set())
             comments.append(comment_obj)
     
     if len(comments)==0 :

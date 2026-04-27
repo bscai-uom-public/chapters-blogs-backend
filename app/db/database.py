@@ -5,6 +5,9 @@ from typing import AsyncGenerator
 import motor.motor_asyncio
 from app.core.config import settings
 
+if not settings.MONGODB_DB_NAME.strip():
+    raise RuntimeError("BLOG_MONGODB_DB_NAME must be configured before database initialization.")
+
 # Create MongoDB client
 client = motor.motor_asyncio.AsyncIOMotorClient(settings.MONGODB_URL)
 database = client[settings.MONGODB_DB_NAME]
@@ -26,4 +29,4 @@ async def get_database() -> AsyncGenerator[motor.motor_asyncio.AsyncIOMotorDatab
     try:
         yield database
     finally:
-        client.close() 
+        pass

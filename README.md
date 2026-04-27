@@ -58,7 +58,7 @@ API docs:
 | Variable | Used in code | Default | Required in production | Purpose |
 |---|---|---|---|---|
 | `BLOG_MONGODB_URL` | `app/core/config.py` | `mongodb://localhost:27017` | Yes | MongoDB connection URI |
-| `BLOG_MONGODB_DB_NAME` | `app/core/config.py` | empty string | Yes | MongoDB database name |
+| `BLOG_MONGODB_DB_NAME` | `app/core/config.py` | `blog_db` | Yes | MongoDB database name |
 | `SUPABASE_URL` | `app/core/config.py` | empty string | Yes | Supabase project URL for issuer and JWKS |
 | `SUPABASE_JWT_AUDIENCE` | `app/core/config.py` | `authenticated` | Recommended | Expected JWT audience |
 | `BACKEND_CORS_ORIGINS` | `app/core/config.py` | local defaults | Yes | Allowed frontend origins as JSON array string |

@@ -28,7 +28,7 @@ async def ping():
 
 # Health check endpoint for blog service
 @router.get("/health", response_model=HealthCheckResponse, tags=["Health"], summary="Blog Service Health Check", responses=HEALTH_CHECK_RESPONSES)
-async def blog_service_health():
+async def blog_service_health(response: Response):
     """
     Comprehensive health check for the blog service.
     
@@ -47,12 +47,8 @@ async def blog_service_health():
     health_response = health_result["health_response"]
     status_code = health_result["status_code"]
     
-    # Set response status code based on health
-    if status_code != 200:
-        response = Response()
-        response.status_code = status_code
-        return health_response
-    
+    # Set response status code based on health.
+    response.status_code = status_code
     return health_response
 
 # NOTE: DO NOT turn these auth provider debug endpoints on in production. These can leak user information !!
