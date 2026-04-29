@@ -154,6 +154,7 @@ class AuthUserProfile(BaseModel):
     profilePicUrl: str = ""
     firstName: str
     lastName: str
+    roles: List[str] = []
 
     # profilePicUrl fallback normalization for provider metadata.
     @model_validator(mode="before")

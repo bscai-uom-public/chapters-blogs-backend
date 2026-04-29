@@ -21,11 +21,14 @@ def cache_user_profile_from_claims(user_id: str, claims: Dict) -> None:
         return
 
     metadata = claims.get("user_metadata", {}) if isinstance(claims.get("user_metadata"), dict) else {}
+    app_metadata = claims.get("app_metadata", {}) if isinstance(claims.get("app_metadata"), dict) else {}
+    
     user = AuthUserProfile(
         username=_build_username(user_id, claims),
         profilePicUrl=metadata.get("avatar_url") or metadata.get("picture") or claims.get("picture") or "",
         firstName=metadata.get("first_name") or claims.get("firstName") or "",
         lastName=metadata.get("last_name") or claims.get("lastName") or "",
+        roles=app_metadata.get("roles", [])
     )
     _profile_cache[user_id] = user
 

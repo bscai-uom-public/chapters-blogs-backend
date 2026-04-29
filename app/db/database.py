@@ -6,8 +6,8 @@ import motor.motor_asyncio
 from app.core.config import settings
 
 # Create MongoDB client
-client = motor.motor_asyncio.AsyncIOMotorClient(settings.MONGODB_URL)
-database = client[settings.MONGODB_DB_NAME]
+client = motor.motor_asyncio.AsyncIOMotorClient(settings.BLOG_MONGODB_URL)
+database = client[settings.BLOG_MONGODB_DB_NAME]
 
 # Collections
 collection_user = database["User"]
