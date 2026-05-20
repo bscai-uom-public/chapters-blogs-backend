@@ -12,8 +12,6 @@ database = client[settings.BLOG_MONGODB_DB_NAME]
 # Collections
 collection_user = database["User"]
 collection_blog = database["Blogs"]
-collection_comment = database["Comments"]
-collection_reply = database["Replies"]
 collection_like = database["Likes"]
 
 # Database dependency

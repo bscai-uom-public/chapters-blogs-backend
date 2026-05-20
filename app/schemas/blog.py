@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import datetime
 
 # Base schemas without auto-generated IDs (for reading from DB)
-class BlogPostBase(BaseModel): 
+class BlogPostBase(BaseModel):
     blogPost_id: str = Field(alias="_id", serialization_alias="blog_id")  # No default_factory, expects existing ID
     comment_constraint: bool
     tags: List[str]
@@ -15,6 +15,7 @@ class BlogPostBase(BaseModel):
     postedAt: datetime
     post_image: Optional[str] = None
     user_id: Optional[str] = None
+    visibility: bool = True
 
 class CommentBase(BaseModel):
     comment_id: str = Field(alias="_id", serialization_alias="comment_id")  # No default_factory, expects existing ID
@@ -41,7 +42,7 @@ class ReplyBase(BaseModel):
     replies: List['ReplyBase'] = []
 
 # Request schemas with auto-generated IDs (for creating new records)
-class BlogPost(BaseModel): 
+class BlogPost(BaseModel):
     blogPost_id: str = Field(default_factory=lambda: str(uuid4()), alias="_id")
     comment_constraint: bool
     tags: List[str]
@@ -52,6 +53,7 @@ class BlogPost(BaseModel):
     postedAt: datetime = Field(default_factory=datetime.utcnow)
     post_image: Optional[str] = None
     user_id: Optional[str] = None
+    visibility: bool = True
 
 # Input model for creating blogs (without ID - backend generates it)
 class BlogPostCreate(BaseModel):
@@ -118,7 +120,7 @@ class BlogPostWithUserData(BlogPostBase):
     user_first_name: Optional[str]
     user_last_name: Optional[str]
 
-class AllBlogsBlogPost(BaseModel): 
+class AllBlogsBlogPost(BaseModel):
     blogPost_id: str = Field(alias="_id", serialization_alias="blog_id")  # No default_factory, expects existing ID
     comment_constraint: bool
     tags: List[str]
@@ -133,6 +135,14 @@ class AllBlogsBlogPost(BaseModel):
     user_image_url: Optional[str] = None
     user_first_name: Optional[str] = None
     user_last_name: Optional[str] = None
+    visibility: bool = True
+
+
+class PaginatedBlogList(BaseModel):
+    items: List[AllBlogsBlogPost]
+    total: int = 0
+    page: int = 1
+    limit: int = 12
 
 # Response models for like endpoints
 class LikeResponse(BaseModel):
